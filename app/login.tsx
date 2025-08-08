@@ -14,7 +14,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as yup from "yup";
@@ -28,7 +28,7 @@ const loginSchema = yup.object({
   password: yup
     .string()
     .min(6, "Password must be at least 6 characters")
-    .required("Password is required")
+    .required("Password is required"),
 });
 
 type LoginFormData = yup.InferType<typeof loginSchema>;
@@ -40,9 +40,9 @@ export default function Login() {
   const {
     control,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: yupResolver(loginSchema)
+    resolver: yupResolver(loginSchema),
   });
 
   // Handle redirect if already authenticated
@@ -64,6 +64,9 @@ export default function Login() {
       const user = userCredential.user;
       const token = await user.getIdToken();
 
+      console.log("token: ", token);
+      ``;
+
       // Gọi login để lưu thông tin vào context của bạn
       login(token, {
         email: user.email ?? "",
@@ -71,7 +74,7 @@ export default function Login() {
         name: "",
         address: "",
         username: "",
-        avatar: ""
+        avatar: "",
       });
       router.replace("/(tabs)");
     } catch (error: any) {
@@ -216,61 +219,61 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white"
+    backgroundColor: "white",
   },
   keyboardAvoidingView: {
-    flex: 1
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     padding: 24,
-    justifyContent: "center"
+    justifyContent: "center",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 24,
-    textAlign: "center"
+    textAlign: "center",
   },
   label: {
-    marginBottom: 8
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
     padding: 12,
-    marginBottom: 5
+    marginBottom: 5,
   },
   submitButton: {
     marginTop: 24,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ccc",
-    backgroundColor: "#007AFF"
+    backgroundColor: "#007AFF",
   },
   inputError: {
-    borderColor: "red"
+    borderColor: "red",
   },
   errorText: {
     color: "red",
     fontSize: 12,
-    marginBottom: 20
+    marginBottom: 20,
   },
   registerButton: {
     marginTop: 24,
-    borderColor: "#ccc"
+    borderColor: "#ccc",
   },
   debugButton: {
     marginTop: 12,
-    borderColor: "#ccc"
+    borderColor: "#ccc",
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 24
+    marginBottom: 24,
   },
   logo: {
     width: 100,
-    height: 100
-  }
+    height: 100,
+  },
 });

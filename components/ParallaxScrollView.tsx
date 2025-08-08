@@ -1,10 +1,10 @@
 import type { PropsWithChildren, ReactElement } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   interpolate,
   useAnimatedRef,
   useAnimatedStyle,
-  useScrollViewOffset
+  useScrollViewOffset,
 } from "react-native-reanimated";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -28,7 +28,7 @@ export default function ParallaxScrollView({
   headerBackgroundColor,
   headerHeight = 250,
   includeBottomTab = false,
-  showBackButton = false
+  showBackButton = false,
 }: Props) {
   const navigation = useNavigation();
   const colorScheme = useColorScheme() ?? "light";
@@ -43,16 +43,16 @@ export default function ParallaxScrollView({
             scrollOffset.value,
             [-headerHeight, 0, headerHeight],
             [-headerHeight / 2, 0, headerHeight * 0.75]
-          )
+          ),
         },
         {
           scale: interpolate(
             scrollOffset.value,
             [-headerHeight, 0, headerHeight],
             [2, 1, 1]
-          )
-        }
-      ]
+          ),
+        },
+      ],
     };
   });
 
@@ -83,13 +83,13 @@ export default function ParallaxScrollView({
             styles.header,
             { height: headerHeight },
             { backgroundColor: headerBackgroundColor[colorScheme] },
-            headerAnimatedStyle
+            headerAnimatedStyle,
           ]}
         >
           {headerImage}
         </Animated.View>
 
-        <ThemedView style={styles.content}>{children}</ThemedView>
+        <View style={styles.content}>{children}</View>
       </Animated.ScrollView>
     </ThemedView>
   );
@@ -98,10 +98,10 @@ export default function ParallaxScrollView({
 const styles = StyleSheet.create({
   container: {
     position: "relative",
-    flex: 1
+    flex: 1,
   },
   header: {
-    overflow: "hidden"
+    overflow: "hidden",
   },
   content: {
     flex: 1,
@@ -112,7 +112,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: "100%"
+    height: "100%",
+    backgroundColor: "white",
   },
   backButton: {
     position: "absolute",
@@ -125,6 +126,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     justifyContent: "center",
-    alignItems: "center"
-  }
+    alignItems: "center",
+  },
 });

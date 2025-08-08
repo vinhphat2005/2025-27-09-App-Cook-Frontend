@@ -13,19 +13,18 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerStyle: {
-            backgroundColor: "white"
+            backgroundColor: "white",
           },
           headerShown: false,
           tabBarActiveTintColor: "#dd3300",
           tabBarButton: HapticTab,
-          tabBarBackground: TabBarBackground,
           tabBarStyle: Platform.select({
             ios: {
               // Use a transparent background on iOS to show the blur effect
-              position: "absolute"
+              position: "absolute",
             },
-            default: {}
-          })
+            default: {},
+          }),
         }}
       >
         <Tabs.Screen
@@ -34,7 +33,7 @@ export default function TabLayout() {
             title: "Trang chủ",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="house.fill" color={color} />
-            )
+            ),
           }}
         />
         <Tabs.Screen
@@ -43,7 +42,7 @@ export default function TabLayout() {
             title: "Công thức",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="fork.knife" color={color} />
-            )
+            ),
           }}
         />
         <Tabs.Screen
@@ -52,7 +51,7 @@ export default function TabLayout() {
             title: "Yêu thích",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="heart.fill" color={color} />
-            )
+            ),
           }}
         />
         <Tabs.Screen
@@ -61,17 +60,17 @@ export default function TabLayout() {
             headerShown: true,
             headerTitle: "Thông tin cá nhân",
             headerTitleStyle: {
-              fontSize: 20
+              fontSize: 20,
             },
             headerStyle: {
               borderBottomWidth: 0,
               borderBottomColor: "transparent",
-              backgroundColor: "white"
+              backgroundColor: "white",
             },
             title: "Cá nhân",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="person.fill" color={color} />
-            )
+            ),
           }}
         />
       </Tabs>
