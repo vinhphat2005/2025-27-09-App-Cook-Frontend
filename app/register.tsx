@@ -8,7 +8,7 @@ import { Stack, useRouter } from "expo-router";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
-  signInWithCredential
+  signInWithCredential,
 } from "firebase/auth";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -20,7 +20,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as yup from "yup";
@@ -35,7 +35,7 @@ const registerSchema = yup.object({
   confirmPassword: yup
     .string()
     .oneOf([yup.ref("password")], "Mật khẩu không trùng khớp")
-    .required("Bắt buộc")
+    .required("Bắt buộc"),
 });
 
 type RegisterFormData = yup.InferType<typeof registerSchema>;
@@ -57,7 +57,7 @@ export default function Register() {
     redirectUri: AuthSession.makeRedirectUri(),
 
     scopes: ["profile", "email", "openid"],
-    responseType: AuthSession.ResponseType.IdToken
+    responseType: AuthSession.ResponseType.IdToken,
   });
 
   // Debug redirect URI - cập nhật
@@ -69,7 +69,7 @@ export default function Register() {
       "Custom Redirect URI:",
       AuthSession.makeRedirectUri({
         scheme: "com.easycook.app",
-        path: "auth"
+        path: "auth",
       })
     );
 
@@ -121,14 +121,14 @@ export default function Register() {
     control,
     handleSubmit,
     formState: { errors },
-    reset
+    reset,
   } = useForm<RegisterFormData>({
     resolver: yupResolver(registerSchema),
     defaultValues: {
       email: "",
       password: "",
-      confirmPassword: ""
-    }
+      confirmPassword: "",
+    },
   });
 
   const onClear = () => reset();
@@ -184,15 +184,15 @@ export default function Register() {
   };
 
   // Handle Google Sign-In
-  const handleGoogleSignIn = async () => {
-    console.log("Starting Google Sign-In...");
-    try {
-      const result = await promptAsync();
-      console.log("PromptAsync result:", result);
-    } catch (error) {
-      console.error("Google Sign-In Error:", error);
-    }
-  };
+  // const handleGoogleSignIn = async () => {
+  //   console.log("Starting Google Sign-In...");
+  //   try {
+  //     const result = await promptAsync();
+  //     console.log("PromptAsync result:", result);
+  //   } catch (error) {
+  //     console.error("Google Sign-In Error:", error);
+  //   }
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -294,14 +294,14 @@ export default function Register() {
           </View>
 
           {/* Google Sign-In */}
-          <View style={{ marginTop: 20 }}>
+          {/* <View style={{ marginTop: 20 }}>
             <Button
               color="#DB4437"
               title="Đăng ký bằng Google"
               onPress={handleGoogleSignIn}
               disabled={!request}
             />
-          </View>
+          </View> */}
 
           {/* Xoá và chuyển sang đăng nhập */}
           <View style={styles.cancelButton}>
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 24,
-    textAlign: "center"
+    textAlign: "center",
   },
   label: { marginBottom: 8 },
   input: {
@@ -336,14 +336,14 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16
+    marginBottom: 16,
   },
   submitButton: {
     marginTop: 24,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ccc",
-    backgroundColor: "#007AFF"
+    backgroundColor: "#007AFF",
   },
   errorText: { color: "red", fontSize: 12, marginTop: -10, marginBottom: 10 },
   cancelButton: {
@@ -351,9 +351,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ccc",
-    backgroundColor: "grey"
+    backgroundColor: "grey",
   },
   loginButton: { marginTop: 24 },
   logoContainer: { alignItems: "center", marginBottom: 24 },
-  logo: { width: 100, height: 100 }
+  logo: { width: 100, height: 100 },
 });

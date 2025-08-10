@@ -9,7 +9,7 @@ export const State = () => {
       </View>
       <View style={[styles.stateItem, styles.border]}>
         <Text style={styles.stateItemText}>100</Text>
-        <Text style={styles.stateItemText}>Đã theo dõi</Text>
+        <Text style={styles.stateItemText}>Following</Text>
       </View>
       <View style={[styles.stateItem, styles.border]}>
         <Text style={styles.stateItemText}>100</Text>
@@ -31,20 +31,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#ff3131",
     padding: 15,
     borderRadius: 20,
-    marginTop: 10
+    marginTop: 10,
   },
   stateItem: {
     flex: 1,
-    alignItems: "center"
+    alignItems: "center",
   },
   border: {
     borderRightWidth: 1,
-    borderColor: "white"
+    borderColor: "white",
   },
   stateItemText: {
     fontSize: 12,
     color: "white",
     fontWeight: "bold",
-    textAlign: "center"
-  }
+    textAlign: "center",
+  },
 });

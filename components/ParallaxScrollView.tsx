@@ -6,11 +6,13 @@ import Animated, {
   useAnimatedStyle,
   useScrollViewOffset,
 } from "react-native-reanimated";
-
+import Ionicons from "@expo/vector-icons/Feather";
 import { ThemedView } from "@/components/ThemedView";
 import { useBottomTabOverflow } from "@/components/ui/TabBarBackground";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { useNavigation } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import { NotificationScreen } from "@/app/notification";
+import { Notification } from "./Notification/Notification";
 
 // const HEADER_HEIGHT = 250;
 
@@ -30,6 +32,7 @@ export default function ParallaxScrollView({
   includeBottomTab = false,
   showBackButton = false,
 }: Props) {
+  const router = useRouter();
   const navigation = useNavigation();
   const colorScheme = useColorScheme() ?? "light";
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -72,6 +75,16 @@ export default function ParallaxScrollView({
           <Text style={{ color: "#fff", fontSize: 22 }}>←</Text>
         </Pressable>
       )}
+
+      <Pressable
+        onPress={() => {
+          router.push("/notification");
+        }}
+        style={styles.notificationIcon}
+      >
+        <Ionicons name="bell" size={30} color="green" />
+      </Pressable>
+
       <Animated.ScrollView
         ref={scrollRef}
         scrollEventThrottle={16}
@@ -127,5 +140,11 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+  },
+  notificationIcon: {
+    position: "absolute",
+    top: 45,
+    right: 16,
+    zIndex: 10,
   },
 });

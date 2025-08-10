@@ -31,10 +31,10 @@ export const NotificationScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: StatusBar.currentHeight
+    paddingTop: StatusBar.currentHeight,
   },
   scrollView: {
     gap: 10,
-    padding: 20
-  }
+    padding: 20,
+  },
 });
