@@ -19,18 +19,18 @@ export const Notification = ({ notify }: Props) => {
           },
         ]}
       >
-        <View style={styles.leftContent}>
+        <View style={styles.aboveContent}>
           <Text style={styles.username}>{notify.user.name}</Text>
-          <Text style={styles.notifyBody}>{notify.content}</Text>
-        </View>
-
-        <View style={styles.rightContent}>
           <View style={styles.timeContainer}>
             {!notify.isRead && (
               <Ionicons name="bell" size={15} color={unreadColor} />
             )}
             <Text style={styles.time}>{notify.time}</Text>
           </View>
+        </View>
+
+        <View style={styles.belowContent}>
+          <Text style={styles.notifyBody}>{notify.content}</Text>
         </View>
       </View>
 
@@ -45,15 +45,18 @@ const styles = StyleSheet.create({
   container: {
     position: "relative",
     backgroundColor: "white",
+    marginBottom: 5,
+    paddingLeft: 25,
   },
   avatarContainer: {
     position: "absolute",
     top: "50%",
+    left: 25,
     transform: [{ translateY: "-50%" }, { translateX: "-50%" }],
     zIndex: 1,
   },
   contentContainer: {
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 10,
     borderWidth: 2,
     borderRightWidth: 0,
@@ -80,10 +83,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   time: {},
-  leftContent: {
-    flexDirection: "column",
-    gap: 10,
+  aboveContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingRight: 10,
   },
-  rightContent: {},
-  notifyBody: {},
+  belowContent: {
+    paddingRight: 10,
+  },
+  notifyBody: {
+    textAlign: "justify",
+  },
 });

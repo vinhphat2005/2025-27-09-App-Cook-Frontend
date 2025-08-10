@@ -63,7 +63,17 @@ export default function RootLayout() {
         <Stack.Screen
           name="notification"
           options={{
-            headerShown: false,
+            headerStyle: {
+              backgroundColor: "white",
+            },
+            headerShown: true,
+            headerTitle: "",
+            headerBackTitleStyle: {
+              fontSize: 22,
+            },
+            headerBackTitle: "Thông báo",
+            headerTintColor: "red",
+            headerShadowVisible: false,
           }}
         />
         <Stack.Screen name="+not-found" />

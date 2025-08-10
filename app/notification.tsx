@@ -1,5 +1,5 @@
 import { AuthGuard } from "@/components/AuthGuard";
-import { Notification } from "@/components/Notification/Notification";
+import { GroupNotification } from "@/components/Notification/GroupNotification";
 import { mockNotifies } from "@/constants/mock-data";
 import { Notify } from "@/types";
 import { useEffect, useState } from "react";
@@ -18,9 +18,8 @@ export default function NotificationScreen() {
       <SafeAreaProvider>
         <SafeAreaView style={styles.container} edges={["top"]}>
           <ScrollView contentContainerStyle={styles.scrollView}>
-            {notifies.map((notify) => (
-              <Notification key={notify.id} notify={notify} />
-            ))}
+            <GroupNotification label="Hôm nay" notifications={notifies} />
+            <GroupNotification label="Hôm qua" notifications={notifies} />
           </ScrollView>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -34,7 +33,7 @@ const styles = StyleSheet.create({
     paddingTop: StatusBar.currentHeight,
   },
   scrollView: {
-    gap: 10,
-    paddingLeft: 40,
+    paddingTop: 20,
+    paddingLeft: 20,
   },
 });
