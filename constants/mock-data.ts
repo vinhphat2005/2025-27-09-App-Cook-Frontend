@@ -11,7 +11,7 @@ export const mockDishes1: Dish[] = [
     steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
     star: 4.7,
     isFavorite: true,
-    level: "easy"
+    level: "easy",
   },
   {
     id: 2,
@@ -23,7 +23,7 @@ export const mockDishes1: Dish[] = [
     steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
     star: 4.7,
     isFavorite: false,
-    level: "easy"
+    level: "easy",
   },
   {
     id: 3,
@@ -32,7 +32,7 @@ export const mockDishes1: Dish[] = [
     time: "20 phút",
     label: "Cơm tấm",
     ingredients: ["Cơm", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 4,
@@ -41,7 +41,7 @@ export const mockDishes1: Dish[] = [
     time: "12 phút",
     label: "Bún chả",
     ingredients: ["Bún", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 5,
@@ -50,7 +50,7 @@ export const mockDishes1: Dish[] = [
     time: "18 phút",
     label: "Gỏi cuốn",
     ingredients: ["Gỏi", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 6,
@@ -59,7 +59,7 @@ export const mockDishes1: Dish[] = [
     time: "25 phút",
     label: "Bánh xèo",
     ingredients: ["Bánh xèo", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 7,
@@ -68,7 +68,7 @@ export const mockDishes1: Dish[] = [
     time: "30 phút",
     label: "Chả giò",
     ingredients: ["Chả giò", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 8,
@@ -77,7 +77,7 @@ export const mockDishes1: Dish[] = [
     time: "22 phút",
     label: "Bún bò Huế",
     ingredients: ["Bún", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 9,
@@ -86,7 +86,7 @@ export const mockDishes1: Dish[] = [
     time: "16 phút",
     label: "Cao lầu",
     ingredients: ["Cao lầu", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 10,
@@ -95,7 +95,7 @@ export const mockDishes1: Dish[] = [
     time: "14 phút",
     label: "Bánh cuốn",
     ingredients: ["Bánh cuốn", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
   },
   {
     id: 11,
@@ -104,8 +104,8 @@ export const mockDishes1: Dish[] = [
     time: "28 phút",
     label: "Bánh bèo",
     ingredients: ["Bánh bèo", "Thịt bò", "Hành tây", "Dưa leo"],
-    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"]
-  }
+    steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
+  },
 ];
 
 export const mockNotifies: Notify[] = [
@@ -115,12 +115,12 @@ export const mockNotifies: Notify[] = [
       id: 1,
       name: "Nguyễn Văn A",
       avatar:
-        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop"
+        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop",
     },
     time: "10 phút trước",
     createdAt: "2025-01-01T10:00:00Z",
     content: 'Thích món "Bún Bò Huế" của bạn',
-    isRead: false
+    isRead: false,
   },
   {
     id: 2,
@@ -128,12 +128,12 @@ export const mockNotifies: Notify[] = [
       id: 1,
       name: "Nguyễn Văn A",
       avatar:
-        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop"
+        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop",
     },
     time: "10 phút trước",
     createdAt: "2025-01-01T10:00:00Z",
     content: 'Thích món "Bún Bò Huế" của bạn',
-    isRead: false
+    isRead: false,
   },
   {
     id: 3,
@@ -141,12 +141,12 @@ export const mockNotifies: Notify[] = [
       id: 1,
       name: "Nguyễn Văn A",
       avatar:
-        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop"
+        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop",
     },
     time: "10 phút trước",
     createdAt: "2025-01-01T10:00:00Z",
     content: 'Thích món "Bún Bò Huế" của bạn',
-    isRead: false
+    isRead: true,
   },
   {
     id: 4,
@@ -154,24 +154,24 @@ export const mockNotifies: Notify[] = [
       id: 1,
       name: "Nguyễn Văn A",
       avatar:
-        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop"
+        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop",
     },
     time: "10 phút trước",
     createdAt: "2025-01-01T10:00:00Z",
     content: 'Thích món "Bún Bò Huế" của bạn',
-    isRead: false
+    isRead: true,
   },
   {
-    id: 1,
+    id: 5,
     user: {
       id: 1,
       name: "Nguyễn Văn A",
       avatar:
-        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop"
+        "https://images.unsplash.com/photo-1506089676908-3592f7389d4d?q=80&w=2070&auto=format&fit=crop",
     },
     time: "10 phút trước",
     createdAt: "2025-01-01T10:00:00Z",
     content: 'Thích món "Bún Bò Huế" của bạn',
-    isRead: false
-  }
+    isRead: true,
+  },
 ];

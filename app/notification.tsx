@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, StatusBar, StyleSheet } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-export const NotificationScreen = () => {
+export default function NotificationScreen() {
   const [notifies, setNotifies] = useState<Notify[]>([]);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export const NotificationScreen = () => {
       </SafeAreaProvider>
     </AuthGuard>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -35,6 +35,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     gap: 10,
-    padding: 20,
+    paddingLeft: 40,
   },
 });
