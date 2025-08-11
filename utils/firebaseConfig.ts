@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { initializeAuth } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -12,6 +12,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = initializeAuth(app, {});
+
+export const auth = getAuth(app);
+
+export async function getFirebaseToken(forceRefresh = false) {
+  const user = auth.currentUser;
+  if (!user) return null; // chưa đăng nhập
+  return user.getIdToken(forceRefresh);
+}
 
 export const db = getFirestore(app);
