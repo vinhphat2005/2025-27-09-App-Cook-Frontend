@@ -11,7 +11,6 @@ async function j<T>(r: Response) {
   if (!r.ok) throw new Error(await r.text().catch(() => `HTTP ${r.status}`));
   return r.json() as Promise<T>;
 }
-
 export async function fetchTodaySuggestions(opts?: { userId?: string }) {
   const url = new URL("/dishes/suggest/today", API_URL);
   if (opts?.userId) url.searchParams.set("userId", opts.userId);
@@ -27,10 +26,9 @@ export async function fetchTodaySuggestions(opts?: { userId?: string }) {
   }
 
   const raw = await res.json();
-
-  // 👇 In dữ liệu gốc ra console
   console.log("Raw data from backend:", raw);
 
   return normalizeDishList(raw);
 }
+
 

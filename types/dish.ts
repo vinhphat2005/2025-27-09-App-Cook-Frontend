@@ -90,16 +90,23 @@ function deriveLevel(minutes: number): "easy" | "medium" | "hard" {
   return "hard";
 }
 
-export function normalizeDishList(raw: any[]): Dish[] {
-  return raw.map((d) => ({
-    id: d.id,
-    image: d.image_url,
-    time: `${d.cooking_time} phút`,
-    label: d.name,
-    ingredients: d.ingredients ?? [],
-    steps: [], // nếu muốn thì fetch thêm từ recipe
-    star: d.average_rating,
-    isFavorite: Array.isArray(d.liked_by) && d.liked_by.length > 0,
-    level: "easy" // tạm gán nếu backend chưa trả
-  }));
+export function normalizeDishList(rawList: any[]): Dish[] {
+  return rawList.map((item) => {
+    let imageUrl = item.image_url; // fallback nếu backend có link ảnh
+    if (item.image_b64 && item.image_mime) {
+      imageUrl = `data:${item.image_mime};base64,${item.image_b64}`;
+    }
+
+    return {
+      id: item.id,
+      image: imageUrl,
+      time: `${item.cooking_time} phút`,
+      label: item.name,
+      ingredients: item.ingredients || [],
+      steps: item.steps || [],
+      star: item.average_rating || 0,
+      isFavorite: false,
+      level: "easy",
+    };
+  });
 }

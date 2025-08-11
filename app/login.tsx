@@ -132,7 +132,7 @@ export default function Login() {
 
       const user = userCredential.user;
       let token = await user.getIdToken();
-
+      console.log("🔑 Firebase Token (ID Token):", token); // log token sau login
       // Lưu token + info vào context của bạn
       login(token, {
         email: user.email ?? "",
