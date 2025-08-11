@@ -1,8 +1,9 @@
 import { Image } from "expo-image";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/ProductList";
+import { SearchBox } from "@/components/Search/SearchBox";
 import { mockDishes1 } from "@/constants/mock-data";
 import { useRouter } from "expo-router";
 
@@ -21,14 +22,8 @@ export default function HomeScreen() {
       }
     >
       <Text style={styles.title}>Nhập nguyên liệu bạn có:</Text>
-      {/* multiline text input */}
-      <TextInput multiline numberOfLines={4} style={styles.input} />
-
-      <View style={styles.buttonContainer}>
-        <View style={styles.searchButton}>
-          <Button color="black" title="Tìm kiếm" onPress={() => {}} />
-        </View>
-      </View>
+      
+      <SearchBox />
 
       <View style={styles.productListContainer}>
         <ProductList
@@ -63,26 +58,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "gray",
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 10,
-    height: 60
-  },
-  searchButton: {
-    alignItems: "center",
-    backgroundColor: "#f5a002",
-    fontWeight: "bold",
-    color: "white",
-    borderRadius: 10,
-    paddingLeft: 20,
-    paddingRight: 20
-  },
-  buttonContainer: {
-    alignItems: "center"
   },
   productListContainer: {
     marginTop: 20

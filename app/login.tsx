@@ -32,6 +32,36 @@ const loginSchema = yup.object({
 });
 
 type LoginFormData = yup.InferType<typeof loginSchema>;
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+// ⚠️ Chọn baseURL đúng môi trường:
+const getBaseURL = () => {
+  if (__DEV__) {
+    if (Platform.OS === 'ios') {
+      // Dùng IP thực của máy để kết nối từ thiết bị/simulator
+      // Nếu 192.168.100.208 không work, thử localhost cho simulator
+      return API_URL;
+    } else {
+      // Android emulator
+      return "http://10.0.2.2:8000";
+    }
+  }
+  // Production
+  return "https://your-production-api.com";
+};
+
+// Danh sách URL backup để thử nếu main URL fail
+const getBackupURLs = () => {
+  if (__DEV__ && Platform.OS === 'ios') {
+    return [
+      "http://localhost:8000",           // iOS Simulator
+      "http://127.0.0.1:8000",          // Localhost alternative
+      "http://192.168.100.208:8000"     // Real IP
+    ];
+  }
+  return [];
+};
+
+const BASE_URL = getBaseURL(); 
 
 export default function Login() {
   const router = useRouter();
@@ -55,19 +85,55 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       console.log("Attempting login with email:", data.email);
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
+      
+      
+      // Test backend connectivity with multiple URLs
+      const testBackend = async () => {
+        const urlsToTest = [BASE_URL, ...getBackupURLs()];
+        
+        for (const url of urlsToTest) {
+          try {
+            console.log(`🔍 Testing connection to: ${url}`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // Increase to 8 seconds
+            
+            const res = await fetch(`${url}/health`, { 
+              method: 'GET',
+              signal: controller.signal
+              });
+            clearTimeout(timeoutId);
+            
+            if (res.ok) {
+              console.log(`✅ Backend connected: ${url} (status: ${res.status})`);
+              return url; // Return working URL
+            } else {
+              console.log(`❌ Backend responded with error: ${url} (status: ${res.status})`);
+            }
+          } catch (e: any) {
+            console.log(`❌ Failed to connect to ${url}:`, e.message);
+          }
+        }
+        console.log("❌ No backend URL is reachable");
+        return null;
+      };
+      
+      // Run test in background, don't wait
+      testBackend();
+
+      // ==== BẮT ĐẦU LOGIN FIREBASE ====
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      data.email,
+      data.password
+    );
+
+    // ... phần xử lý sau login của bạn giữ nguyên ...
+
 
       const user = userCredential.user;
-      const token = await user.getIdToken();
-
-      console.log("token: ", token);
-      ``;
-
-      // Gọi login để lưu thông tin vào context của bạn
+      let token = await user.getIdToken();
+      console.log("🔑 Firebase Token (ID Token):", token); // log token sau login
+      // Lưu token + info vào context của bạn
       login(token, {
         email: user.email ?? "",
         id: user.uid,
@@ -76,6 +142,71 @@ export default function Login() {
         username: "",
         avatar: "",
       });
+
+      // ====== TRY CALL BACKEND (OPTIONAL) ======
+      // Nếu backend fail, vẫn cho login thành công
+      try {
+        const callProtected = async (path: string, jwt: string) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+          
+          const res = await fetch(`${BASE_URL}${path}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${jwt}`,
+            },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          return res;
+        };
+
+        // Lần 1: dùng token hiện tại
+        let res = await callProtected("/users/me", token);
+
+        // Nếu 401 => token có thể hết hạn/bị revoke -> refresh rồi thử lại 1 lần
+        if (res.status === 401) {
+          console.log("Token 401, trying refresh...");
+          token = await user.getIdToken(true);
+          res = await callProtected("/users/me", token);
+        }
+
+        if (res.ok) {
+          const userData = await res.json();
+          console.log("✅ User data from backend:", userData);
+          
+          // Update context với data từ backend
+          login(token, {
+            email: userData.email,
+            id: userData.id,
+            name: userData.name || "",
+            address: "", // Backend không có field này
+            username: userData.display_id || "",
+            avatar: userData.avatar || "",
+          });
+        } else if (res.status === 404) {
+          // User chưa tồn tại trong backend, backend sẽ tự động tạo
+          console.log("ℹ️ User not found in backend, backend will handle user creation");
+        } else {const text = await res.text();
+          console.log("⚠️ Backend error:", res.status, text);
+        }
+      } catch (backendError: any) {
+        // Backend fail nhưng không làm crash login
+        console.log("⚠️ Backend call failed (but login still success):", backendError.message);
+      }
+
+      // Ví dụ: gọi update profile (tùy nhu cầu)
+      // const upd = await fetch(`${BASE_URL}/profile/update`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     Authorization: `Bearer ${token}`,
+      //   },
+      //   body: JSON.stringify({ name: "Giang Giang" }),
+      // });
+      // console.log("Update profile:", await upd.json());
+
       router.replace("/(tabs)");
     } catch (error: any) {
       console.error("Firebase login error:", error);
@@ -109,7 +240,13 @@ export default function Login() {
             "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet.";
           break;
         default:
-          errorMessage = `Lỗi đăng nhập: ${error.message}`;
+          // Chỉ log backend error, không hiện cho user
+          if (typeof error.message === "string" && error.message.startsWith("Backend error")) {
+            console.log("Backend error (ignored):", error.message);
+            errorMessage = "Đăng nhập thành công nhưng không kết nối được server.";
+          } else {
+            errorMessage = `Lỗi đăng nhập: ${error.message}`;
+          }
       }
 
       alert(errorMessage);
@@ -123,11 +260,7 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen
-      // options={{
-      //   headerShown: false
-      // }}
-      />
+      <Stack.Screen />
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -137,8 +270,7 @@ export default function Login() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.logoContainer}>
+        ><View style={styles.logoContainer}>
             <Image
               source={require("@/assets/images/logo.png")}
               style={styles.logo}
@@ -203,7 +335,7 @@ export default function Login() {
               onPress={() => router.replace("/register")}
             />
           </View>
-          <View style={styles.debugButton}>
+<View style={styles.debugButton}>
             <Button
               color="gray"
               title="Debug Auth"
@@ -219,7 +351,7 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white",
+  backgroundColor: "white",
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -245,8 +377,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 5,
   },
-  submitButton: {
-    marginTop: 24,
+  submitButton: {marginTop: 24,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ccc",

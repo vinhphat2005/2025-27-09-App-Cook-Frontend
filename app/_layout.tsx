@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -13,10 +14,6 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-
-  // useEffect(() => {
-  //   useAuthStore.getState().logout();
-  // }, []);
 
   useEffect(() => {
     if (loaded) {
@@ -31,54 +28,57 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider
-      value={{
-        ...DefaultTheme,
-        colors: {
-          ...DefaultTheme.colors,
-          background: "white",
-        },
-      }}
-    >
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: "#fcd303",
-          },
-          headerTintColor: "#fff",
-          headerTitleStyle: {
-            fontWeight: "bold",
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider
+        value={{
+          ...DefaultTheme,
+          colors: {
+            ...DefaultTheme.colors,
+            background: "white",
           },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="detail"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="notification"
-          options={{
+        <Stack
+          screenOptions={{
             headerStyle: {
-              backgroundColor: "white",
+              backgroundColor: "#fcd303",
             },
-            headerShown: true,
-            headerTitle: "",
-            headerBackTitleStyle: {
-              fontSize: 22,
+            headerTintColor: "#fff",
+            headerTitleStyle: {
+              fontWeight: "bold",
             },
-            headerBackTitle: "Thông báo",
-            headerTintColor: "red",
-            headerShadowVisible: false,
           }}
-        />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="register" options={{ headerShown: false }} />
+          <Stack.Screen name="search-results" options={{ headerShown: true, title: "Kết quả tìm kiếm" }} />
+          <Stack.Screen
+            name="detail"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="notification"
+            options={{
+              headerStyle: {
+                backgroundColor: "white",
+              },
+              headerShown: true,
+              headerTitle: "",
+              headerBackTitleStyle: {
+                fontSize: 22,
+              },
+              headerBackTitle: "Thông báo",
+              headerTintColor: "red",
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
