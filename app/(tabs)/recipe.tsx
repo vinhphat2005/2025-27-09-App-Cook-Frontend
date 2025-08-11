@@ -82,20 +82,20 @@ const styles = StyleSheet.create({
     width: 290,
     bottom: 0,
     left: 0,
-    position: "absolute"
+    position: "absolute",
   },
   title: {
     fontSize: 32,
     fontWeight: "bold",
     marginBottom: 10,
-    color: "#dd3300"
+    color: "#dd3300",
   },
   searchInput: {
     flex: 1,
 
     borderRadius: 10,
     padding: 10,
-    backgroundColor: "white"
+    backgroundColor: "white",
   },
   searchContainer: {
     position: "relative",
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "gray",
     borderRadius: 30,
-    overflow: "hidden"
+    overflow: "hidden",
   },
   searchClearButton: {
     position: "absolute",
@@ -115,15 +115,15 @@ const styles = StyleSheet.create({
     top: "50%",
     transform: [{ translateY: -7 }],
     padding: 4,
-    zIndex: 10
+    zIndex: 10,
   },
   searchIconContainer: {
-    padding: 4
+    padding: 4,
   },
   dishList: {
     width: "100%",
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 5
-  }
+    paddingHorizontal: 5,
+  },
 });

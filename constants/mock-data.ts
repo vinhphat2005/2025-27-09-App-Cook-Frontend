@@ -22,7 +22,7 @@ export const mockDishes1: Dish[] = [
     ingredients: ["Phở", "Thịt bò", "Hành tây", "Dưa leo"],
     steps: ["Bước 1", "Bước 2", "Bước 3", "Bước 4"],
     star: 4.7,
-    isFavorite: false,
+    isFavorite: true,
     level: "easy",
   },
   {
