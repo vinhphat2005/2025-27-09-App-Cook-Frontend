@@ -1,10 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Image } from 'expo-image';
+import { Image } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
 export default function SearchResults() {
   const { query, results } = useLocalSearchParams();
   const router = useRouter();
@@ -21,60 +22,56 @@ export default function SearchResults() {
     }
   }, [results]);
 
-async function logSearchHistory(item: any, type: string) {
-  try {
-   await fetch(`${API_URL}/users/activity/view`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // nếu có token thì thêm Authorization
-        Authorization: `Bearer ${useAuthStore.getState().token}`,
-      },
-      body: JSON.stringify({
-        type, // "dish" hoặc "user"
-        target_id: item.id,
-        name: item.name || item.display_id || "",
-        image: item.image_b64 || item.image_url || item.avatar || "",
-        timestamp: new Date().toISOString(),
-      }),
-    });
-  } catch (err) {
-    console.error("Lỗi gửi lịch sử tìm kiếm:", err);
+  async function logSearchHistory(item: any, type: string) {
+    try {
+     await fetch(`${API_URL}/users/activity/view`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${useAuthStore.getState().token}`,
+        },
+        body: JSON.stringify({
+          type,
+          target_id: item.id,
+          name: item.name || item.display_id || "",
+          image: item.image_url || item.avatar || "",
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.error("Lỗi gửi lịch sử tìm kiếm:", err);
+    }
   }
-}
 
-const handleItemPress = async (item: any, type: "dish" | "user" | "ingredient") => {
-  try {
-    if (!item) {
-      Alert.alert("Không tìm thấy mục", "Vui lòng thử lại.");
-      return;
+  const handleItemPress = async (item: any, type: "dish" | "user" | "ingredient") => {
+    try {
+      if (!item) {
+        Alert.alert("Không tìm thấy mục", "Vui lòng thử lại.");
+        return;
+      }
+      if ((type === "dish" || type === "user") && !item.id) {
+        Alert.alert("Thiếu ID", "Không thể mở chi tiết vì thiếu mã định danh.");
+        return;
+      }
+
+      await logSearchHistory(item, type);
+
+      switch (type) {
+        case "dish":
+          router.push(`/detail?id=${item.id}`);
+          break;
+        case "user":
+          router.push(`/profile?id=${item.id}`);
+          break;
+        case "ingredient":
+          Alert.alert("Nguyên liệu", item.name ?? "Đã chọn nguyên liệu");
+          break;
+      }
+    } catch (e: any) {
+      console.log("handleItemPress error:", e?.message || e);
+      Alert.alert("Lỗi", "Có lỗi xảy ra, vui lòng thử lại.");
     }
-    if ((type === "dish" || type === "user") && !item.id) {
-      Alert.alert("Thiếu ID", "Không thể mở chi tiết vì thiếu mã định danh.");
-      return;
-    }
-
-    // Gửi log về backend
-    await logSearchHistory(item, type);
-
-    // Điều hướng
-    switch (type) {
-      case "dish":
-        router.push(`/detail?id=${item.id}`);
-        break;
-      case "user":
-        router.push(`/profile?id=${item.id}`);
-        break;
-      case "ingredient":
-        Alert.alert("Nguyên liệu", item.name ?? "Đã chọn nguyên liệu");
-        break;
-    }
-  } catch (e: any) {
-    console.log("handleItemPress error:", e?.message || e);
-    Alert.alert("Lỗi", "Có lỗi xảy ra, vui lòng thử lại.");
-  }
-};
-
+  };
 
   if (!searchData) {
     return (
@@ -85,7 +82,7 @@ const handleItemPress = async (item: any, type: "dish" | "user" | "ingredient") 
     );
   }
 
-   return (
+  return (
     <ScrollView style={styles.container}>
       <Stack.Screen options={{ title: `Kết quả cho "${query}"` }} />
       
@@ -93,45 +90,45 @@ const handleItemPress = async (item: any, type: "dish" | "user" | "ingredient") 
         Tìm thấy {searchData.total_results} kết quả cho "{query}"
       </Text>
 
-      {/* Dishes Section - THAY THẾ PHẦN NÀY */}
+      {/* Dishes Section - ĐÃ SỬA */}
       {searchData.dishes?.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Món ăn phù hợp ({searchData.dishes.length})
           </Text>
           {searchData.dishes.map((dish: any) => {
-  // GHÉP URI CHO ẢNH
-  const imgUri =
-    dish?.image_b64
-      ? (String(dish.image_b64).startsWith("data:")
-          ? dish.image_b64
-          : `data:${dish.image_mime || "image/jpeg"};base64,${dish.image_b64}`)
-      : (dish?.image_url || "https://via.placeholder.com/60");
+            // SỬA LOGIC XỬ LÝ ẢNH - Ưu tiên image_url từ Cloudinary
+            const imgUri = dish?.image_url || "https://via.placeholder.com/60";
 
-  return (
-    <TouchableOpacity
-      key={dish.id}
-      style={styles.item}
-      onPress={() => handleItemPress(dish, "dish")}
-    >
-      <Image source={{ uri: imgUri }} style={styles.itemImage} />
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{dish.name}</Text>
-        <Text style={styles.itemDetail}>Thời gian: {dish.cooking_time} phút</Text>
-        {dish.match_percentage && (
-          <Text style={styles.matchPercentage}>
-            Khớp: {dish.match_percentage.toFixed(0)}% nguyên liệu
-          </Text>
-        )}
-        {dish.ingredients && (
-          <Text style={styles.ingredients}>
-            Cần: {dish.ingredients.join(", ")}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-})}
+            return (
+              <TouchableOpacity
+                key={dish.id}
+                style={styles.item}
+                onPress={() => handleItemPress(dish, "dish")}
+              >
+                <Image 
+                  source={{ uri: imgUri }} 
+                  style={styles.itemImage}
+                  // Thêm fallback nếu load ảnh thất bại
+                  onError={() => console.log("Failed to load image:", imgUri)}
+                />
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName}>{dish.name}</Text>
+                  <Text style={styles.itemDetail}>Thời gian: {dish.cooking_time} phút</Text>
+                  {dish.match_percentage && (
+                    <Text style={styles.matchPercentage}>
+                      Khớp: {dish.match_percentage.toFixed(0)}% nguyên liệu
+                    </Text>
+                  )}
+                  {dish.ingredients && (
+                    <Text style={styles.ingredients}>
+                      Cần: {dish.ingredients.join(", ")}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
 
@@ -194,8 +191,6 @@ const handleItemPress = async (item: any, type: "dish" | "user" | "ingredient") 
   );
 }
 
-// ...existing code...
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -230,6 +225,7 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 8,
     marginRight: 12,
+    backgroundColor: '#e0e0e0', // Thêm background color cho khi loading
   },
   ingredientIcon: {
     width: 60,

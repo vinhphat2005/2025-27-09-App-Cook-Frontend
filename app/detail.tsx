@@ -13,12 +13,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
-// Define types based on your backend models
+// Updated types to match backend changes
 interface DishDetail {
   id: string;
   name: string;
-  image_b64?: string;
-  image_mime?: string;
+  image_url?: string; // Changed from image_b64/image_mime
   cooking_time: number;
   average_rating: number;
   ingredients: string[];
@@ -36,8 +35,7 @@ interface RecipeDetail {
   difficulty: string;
   instructions: string[];
   average_rating: number;
-  image_b64?: string;
-  image_mime?: string;
+  image_url?: string; // Changed from image_b64/image_mime
   created_by?: string;
   dish_id?: string;
   ratings: number[];
@@ -67,17 +65,6 @@ export default function DishDetailScreen() {
     }
 
     return headers;
-  };
-
-  // Function to convert base64 to data URI
-  const getImageUri = (
-    imageB64?: string,
-    imageMime?: string
-  ): string | undefined => {
-    if (imageB64 && imageMime) {
-      return `data:${imageMime};base64,${imageB64}`;
-    }
-    return undefined;
   };
 
   // Get API base URL from env
@@ -125,6 +112,7 @@ export default function DishDetailScreen() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const data: DishWithRecipeDetail = await response.json();
+      console.log("Dish data received:", data); // Debug log
       setDishData(data);
     } catch (error) {
       console.error("Error fetching dish data:", error);
@@ -175,9 +163,10 @@ export default function DishDetailScreen() {
   }
 
   const { dish, recipe } = dishData;
-  const imageUri =
-    getImageUri(dish.image_b64, dish.image_mime) ||
-    getImageUri(recipe?.image_b64, recipe?.image_mime);
+  
+  // Updated image logic to use image_url from Cloudinary
+  const imageUri = dish.image_url || recipe?.image_url;
+  console.log("Image URI:", imageUri); // Debug log
 
   return (
     <AuthGuard>
@@ -188,7 +177,11 @@ export default function DishDetailScreen() {
         headerBackgroundColor={{ light: "#D0D0D0", dark: "#353636" }}
         headerImage={
           imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.headerImage} />
+            <Image 
+              source={{ uri: imageUri }} 
+              style={styles.headerImage}
+              onError={(error) => console.log("Image load error:", error)} // Debug log
+            />
           ) : (
             <View style={[styles.headerImage, styles.placeholderImage]}>
               <Text style={styles.placeholderText}>🍽️</Text>
@@ -272,7 +265,7 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 20,
     resizeMode: "cover",
-    backgroundColor: "white"
+    backgroundColor: "#f0f0f0" // Better placeholder background
   },
   placeholderImage: {
     justifyContent: "center",

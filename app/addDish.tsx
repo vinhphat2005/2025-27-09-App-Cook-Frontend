@@ -36,7 +36,7 @@ export default function AddDish() {
     requireAuth();
   }, []);
 
-  // Image picker
+  // Enhanced image picker với compression tốt hơn
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -49,7 +49,7 @@ export default function AddDish() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.8,
+      quality: 0.7, // Giảm chút để tối ưu size khi gửi lên server
       base64: true,
     });
 
@@ -58,6 +58,13 @@ export default function AddDish() {
       setImage(selectedImage.uri);
       setImageBase64(selectedImage.base64);
       setImageMime(selectedImage.mimeType || 'image/jpeg');
+      
+      // Log để debug
+      console.log('Image selected:', {
+        uri: selectedImage.uri,
+        mimeType: selectedImage.mimeType,
+        base64Length: selectedImage.base64?.length || 0
+      });
     }
   };
 
@@ -101,32 +108,39 @@ export default function AddDish() {
     setInstructions(newInstructions);
   };
 
-  // Validate form
+  // Enhanced validation với error messages rõ ràng hơn
   const validateForm = () => {
     if (!dishName.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập tên món ăn!');
       return false;
     }
+    
     if (!cookingTime || isNaN(cookingTime) || parseInt(cookingTime) <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập thời gian nấu hợp lệ!');
+      Alert.alert('Lỗi', 'Vui lòng nhập thời gian nấu hợp lệ (số phút > 0)!');
       return false;
     }
-    if (ingredients.filter(ing => ing.trim()).length === 0) {
+    
+    const validIngredients = ingredients.filter(ing => ing.trim());
+    if (validIngredients.length === 0) {
       Alert.alert('Lỗi', 'Vui lòng thêm ít nhất một nguyên liệu!');
       return false;
     }
-    if (instructions.filter(inst => inst.trim()).length === 0) {
+    
+    const validInstructions = instructions.filter(inst => inst.trim());
+    if (validInstructions.length === 0) {
       Alert.alert('Lỗi', 'Vui lòng thêm ít nhất một bước hướng dẫn!');
       return false;
     }
-    if (!image) {
+    
+    if (!image || !imageBase64) {
       Alert.alert('Lỗi', 'Vui lòng chọn ảnh cho món ăn!');
       return false;
     }
+    
     return true;
   };
 
-  // Create dish
+  // Enhanced create dish với error handling tốt hơn
   const createDish = async () => {
     if (!validateForm()) return;
 
@@ -136,11 +150,16 @@ export default function AddDish() {
       const filteredInstructions = instructions.filter(inst => inst.trim());
 
       const dishData = {
+        // Basic dish info
         name: dishName.trim(),
         ingredients: filteredIngredients,
         cooking_time: parseInt(cookingTime),
+        
+        // Image data - backend sẽ upload lên Cloudinary
         image_b64: imageBase64,
         image_mime: imageMime,
+        
+        // Recipe info
         recipe_name: `Cách làm ${dishName.trim()}`,
         recipe_description: recipeDescription.trim() || `Hướng dẫn làm ${dishName.trim()}`,
         recipe_ingredients: filteredIngredients, // Same as dish ingredients
@@ -148,10 +167,15 @@ export default function AddDish() {
         instructions: filteredInstructions,
       };
 
+      console.log('Sending dish data:', {
+        ...dishData,
+        image_b64: `[base64 data - ${imageBase64?.length || 0} characters]` // Don't log full base64
+      });
+
       const API_URL = process.env.EXPO_PUBLIC_API_URL;
       
       if (!API_URL) {
-        Alert.alert('Lỗi', 'Thiếu cấu hình EXPO_PUBLIC_API_URL');
+        Alert.alert('Lỗi cấu hình', 'Thiếu cấu hình EXPO_PUBLIC_API_URL trong môi trường');
         return; 
       }
 
@@ -164,21 +188,87 @@ export default function AddDish() {
         body: JSON.stringify(dishData),
       });
 
+      const result = await response.json();
+      
       if (response.ok) {
-        const result = await response.json();
-        Alert.alert('Thành công', 'Tạo món ăn thành công!', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+        console.log('Dish created successfully:', result);
+        Alert.alert(
+          'Thành công! 🎉', 
+          result.message || 'Tạo món ăn và công thức thành công!',
+          [
+            { text: 'OK', onPress: () => router.back() }
+          ]
+        );
       } else {
-        const error = await response.json();
-        Alert.alert('Lỗi', error.detail || 'Có lỗi xảy ra!');
+        console.error('Server error:', result);
+        // Handle specific error cases
+        let errorMessage = 'Có lỗi xảy ra!';
+        
+        if (response.status === 401) {
+          errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!';
+        } else if (response.status === 413) {
+          errorMessage = 'Ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn!';
+        } else if (response.status === 500) {
+          errorMessage = 'Lỗi server. Vui lòng thử lại sau!';
+        } else if (result.detail) {
+          errorMessage = result.detail;
+        }
+        
+        Alert.alert('Lỗi', errorMessage);
       }
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể kết nối đến server!');
       console.error('Create dish error:', error);
+      
+      let errorMessage = 'Không thể kết nối đến server!';
+      
+      if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
+        errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối internet!';
+      } else if (error.name === 'TimeoutError') {
+        errorMessage = 'Yêu cầu quá thời gian. Vui lòng thử lại!';
+      }
+      
+      Alert.alert('Lỗi kết nối', errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Camera option
+  const takePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Lỗi', 'Cần quyền truy cập camera!');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      const selectedImage = result.assets[0];
+      setImage(selectedImage.uri);
+      setImageBase64(selectedImage.base64);
+      setImageMime(selectedImage.mimeType || 'image/jpeg');
+    }
+  };
+
+  // Show image picker options
+  const showImagePicker = () => {
+    Alert.alert(
+      'Chọn ảnh',
+      'Bạn muốn chọn ảnh từ đâu?',
+      [
+        { text: 'Thư viện', onPress: pickImage },
+        { text: 'Camera', onPress: takePhoto },
+        { text: 'Hủy', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
   };
 
   return (
@@ -189,13 +279,20 @@ export default function AddDish() {
       {/* Image Upload */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Ảnh món ăn *</Text>
-        <TouchableOpacity style={styles.imageUpload} onPress={pickImage}>
+        <TouchableOpacity style={styles.imageUpload} onPress={showImagePicker}>
           {image ? (
-            <Image source={{ uri: image }} style={styles.uploadedImage} />
+            <>
+              <Image source={{ uri: image }} style={styles.uploadedImage} />
+              <View style={styles.imageOverlay}>
+                <Ionicons name="camera" size={24} color="white" />
+                <Text style={styles.changeImageText}>Đổi ảnh</Text>
+              </View>
+            </>
           ) : (
             <View style={styles.imagePlaceholder}>
               <Ionicons name="camera" size={40} color="#999" />
               <Text style={styles.imagePlaceholderText}>Chọn ảnh</Text>
+              <Text style={styles.imageHint}>Nhấn để chọn từ thư viện hoặc chụp ảnh</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -209,7 +306,9 @@ export default function AddDish() {
           placeholder="Nhập tên món ăn..."
           value={dishName}
           onChangeText={setDishName}
+          maxLength={100}
         />
+        <Text style={styles.charCount}>{dishName.length}/100</Text>
       </View>
 
       {/* Cooking Time */}
@@ -221,6 +320,7 @@ export default function AddDish() {
           value={cookingTime}
           onChangeText={setCookingTime}
           keyboardType="numeric"
+          maxLength={4}
         />
       </View>
 
@@ -258,13 +358,15 @@ export default function AddDish() {
           onChangeText={setRecipeDescription}
           multiline
           numberOfLines={3}
+          maxLength={500}
         />
+        <Text style={styles.charCount}>{recipeDescription.length}/500</Text>
       </View>
 
       {/* Ingredients */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Nguyên liệu *</Text>
+          <Text style={styles.sectionTitle}>Nguyên liệu * ({ingredients.filter(i => i.trim()).length})</Text>
           <TouchableOpacity onPress={addIngredient} style={styles.addButton}>
             <Ionicons name="add" size={24} color="#dc502e" />
           </TouchableOpacity>
@@ -276,6 +378,7 @@ export default function AddDish() {
               placeholder={`Nguyên liệu ${index + 1}...`}
               value={ingredient}
               onChangeText={(value) => updateIngredient(index, value)}
+              maxLength={100}
             />
             {ingredients.length > 1 && (
               <TouchableOpacity
@@ -292,7 +395,7 @@ export default function AddDish() {
       {/* Instructions */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Hướng dẫn nấu *</Text>
+          <Text style={styles.sectionTitle}>Hướng dẫn nấu * ({instructions.filter(i => i.trim()).length})</Text>
           <TouchableOpacity onPress={addInstruction} style={styles.addButton}>
             <Ionicons name="add" size={24} color="#dc502e" />
           </TouchableOpacity>
@@ -308,6 +411,7 @@ export default function AddDish() {
               value={instruction}
               onChangeText={(value) => updateInstruction(index, value)}
               multiline
+              maxLength={300}
             />
             {instructions.length > 1 && (
               <TouchableOpacity
@@ -328,7 +432,10 @@ export default function AddDish() {
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color="white" />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="white" size="small" />
+            <Text style={styles.loadingText}>Đang tạo món ăn...</Text>
+          </View>
         ) : (
           <Text style={styles.createButtonText}>Tạo món ăn</Text>
         )}
@@ -379,6 +486,12 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+  charCount: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'right',
+    marginTop: 4,
   },
   inputRow: {
     flexDirection: 'row',
@@ -434,6 +547,7 @@ const styles = StyleSheet.create({
     height: 200,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   imagePlaceholder: {
     alignItems: 'center',
@@ -443,10 +557,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 8,
   },
+  imageHint: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   uploadedImage: {
     width: '100%',
     height: '100%',
     borderRadius: 6,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  changeImageText: {
+    color: 'white',
+    fontSize: 12,
+    marginLeft: 4,
   },
   difficultyContainer: {
     flexDirection: 'row',
@@ -495,5 +631,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginLeft: 8,
   },
 });
