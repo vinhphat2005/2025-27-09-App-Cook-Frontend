@@ -1,8 +1,15 @@
-import { StyleSheet, Text, View, ActivityIndicator, Alert, TouchableOpacity } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity
+} from "react-native";
 import { AuthGuard } from "@/components/AuthGuard";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { Image } from "expo-image";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -52,18 +59,21 @@ export default function DishDetailScreen() {
   // Function to get auth headers
   const getAuthHeaders = () => {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json"
     };
-    
+
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers["Authorization"] = `Bearer ${token}`;
     }
-    
+
     return headers;
   };
 
   // Function to convert base64 to data URI
-  const getImageUri = (imageB64?: string, imageMime?: string): string | undefined => {
+  const getImageUri = (
+    imageB64?: string,
+    imageMime?: string
+  ): string | undefined => {
     if (imageB64 && imageMime) {
       return `data:${imageMime};base64,${imageB64}`;
     }
@@ -71,7 +81,7 @@ export default function DishDetailScreen() {
   };
 
   // Get API base URL from env
-  const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || '';
+  const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "";
 
   // Function to handle rating
   const handleRating = async () => {
@@ -79,7 +89,7 @@ export default function DishDetailScreen() {
     try {
       const headers = getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/dishes/${id}/rate`, {
-        method: 'POST',
+        method: "POST",
         headers: headers,
         body: JSON.stringify({ rating: 5 }) // You can make this dynamic
       });
@@ -87,13 +97,13 @@ export default function DishDetailScreen() {
       if (response.ok) {
         // Refresh data after rating
         await fetchDishData();
-        Alert.alert('Thành công', 'Đánh giá của bạn đã được ghi nhận!');
+        Alert.alert("Thành công", "Đánh giá của bạn đã được ghi nhận!");
       } else {
-        Alert.alert('Lỗi', 'Không thể đánh giá món ăn');
+        Alert.alert("Lỗi", "Không thể đánh giá món ăn");
       }
     } catch (error) {
-      console.error('Rating error:', error);
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi đánh giá');
+      console.error("Rating error:", error);
+      Alert.alert("Lỗi", "Có lỗi xảy ra khi đánh giá");
     }
   };
 
@@ -105,20 +115,22 @@ export default function DishDetailScreen() {
       setError(null);
       const headers = getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/dishes/${id}/with-recipe`, {
-        method: 'GET',
-        headers: headers,
+        method: "GET",
+        headers: headers
       });
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('Món ăn không tồn tại');
+          throw new Error("Món ăn không tồn tại");
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const data: DishWithRecipeDetail = await response.json();
       setDishData(data);
     } catch (error) {
-      console.error('Error fetching dish data:', error);
-      setError(error instanceof Error ? error.message : 'Có lỗi xảy ra khi tải dữ liệu');
+      console.error("Error fetching dish data:", error);
+      setError(
+        error instanceof Error ? error.message : "Có lỗi xảy ra khi tải dữ liệu"
+      );
     } finally {
       setLoading(false);
     }
@@ -163,8 +175,9 @@ export default function DishDetailScreen() {
   }
 
   const { dish, recipe } = dishData;
-  const imageUri = getImageUri(dish.image_b64, dish.image_mime) || 
-                  getImageUri(recipe?.image_b64, recipe?.image_mime);
+  const imageUri =
+    getImageUri(dish.image_b64, dish.image_mime) ||
+    getImageUri(recipe?.image_b64, recipe?.image_mime);
 
   return (
     <AuthGuard>
@@ -200,18 +213,22 @@ export default function DishDetailScreen() {
           </View>
           <View style={styles.ratingInfo}>
             <Text style={styles.starIcon}>⭐</Text>
-            <Text style={styles.ratingValue}>{dish.average_rating.toFixed(1)}</Text>
+            <Text style={styles.ratingValue}>
+              {dish.average_rating.toFixed(1)}
+            </Text>
           </View>
         </View>
 
         {/* Nguyên liệu */}
         <Text style={styles.sectionTitle}>Nguyên liệu</Text>
         <View style={styles.ingredientsContainer}>
-          {(recipe?.ingredients || dish.ingredients).map((ingredient, index) => (
-            <Text key={index} style={styles.ingredient}>
-              <Text style={styles.bulletPoint}>•</Text> {ingredient}
-            </Text>
-          ))}
+          {(recipe?.ingredients || dish.ingredients).map(
+            (ingredient, index) => (
+              <Text key={index} style={styles.ingredient}>
+                <Text style={styles.bulletPoint}>•</Text> {ingredient}
+              </Text>
+            )
+          )}
         </View>
 
         {/* Cách nấu - nếu có recipe */}
@@ -258,167 +275,167 @@ const styles = StyleSheet.create({
     backgroundColor: "white"
   },
   placeholderImage: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0"
   },
   placeholderText: {
-    fontSize: 40,
+    fontSize: 40
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "white"
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: "#666"
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 20
   },
   errorText: {
     fontSize: 16,
-    color: '#ff4444',
-    textAlign: 'center',
-    marginBottom: 20,
+    color: "#ff4444",
+    textAlign: "center",
+    marginBottom: 20
   },
   retryButton: {
-    backgroundColor: '#FF8C00',
+    backgroundColor: "#FF8C00",
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 8
   },
   retryButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600"
   },
   headerInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 20,
-    marginBottom: 16,
+    marginBottom: 16
   },
   dishTitle: {
     fontSize: 32,
     fontWeight: "bold",
     flex: 1,
-    marginRight: 16,
+    marginRight: 16
   },
   ratingButton: {
-    backgroundColor: '#FF8C00',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "#FF8C00",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 20
   },
   ratingIcon: {
     fontSize: 16,
-    marginRight: 4,
+    marginRight: 4
   },
   ratingText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 24
   },
   timeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 20
   },
   timeIcon: {
     fontSize: 18,
-    marginRight: 6,
+    marginRight: 6
   },
   timeText: {
     fontSize: 16,
-    color: '#666',
+    color: "#666"
   },
   ratingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center"
   },
   starIcon: {
     fontSize: 18,
-    marginRight: 4,
+    marginRight: 4
   },
   ratingValue: {
     fontSize: 16,
-    color: '#666',
+    color: "#666"
   },
   sectionTitle: {
     fontSize: 24,
     fontWeight: "bold",
     marginTop: 24,
-    marginBottom: 16,
+    marginBottom: 16
   },
   ingredientsContainer: {
-    marginBottom: 8,
+    marginBottom: 8
   },
   ingredient: {
     fontSize: 16,
     marginBottom: 8,
-    lineHeight: 24,
+    lineHeight: 24
   },
   bulletPoint: {
     marginRight: 8,
-    color: '#FF8C00',
-    fontWeight: 'bold',
+    color: "#FF8C00",
+    fontWeight: "bold"
   },
   instructionsContainer: {
-    marginBottom: 16,
+    marginBottom: 16
   },
   instructionItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 16,
-    alignItems: 'flex-start',
+    alignItems: "flex-start"
   },
   instructionNumber: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginRight: 8,
-    color: '#FF8C00',
-    minWidth: 24,
+    color: "#FF8C00",
+    minWidth: 24
   },
   instructionText: {
     fontSize: 16,
     lineHeight: 24,
-    flex: 1,
+    flex: 1
   },
   additionalInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16
   },
   difficultyLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600"
   },
   difficultyValue: {
     fontSize: 16,
-    color: '#FF8C00',
-    fontWeight: '600',
+    color: "#FF8C00",
+    fontWeight: "600"
   },
   descriptionContainer: {
-    marginTop: 16,
+    marginTop: 16
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#666',
-  },
+    color: "#666"
+  }
 });

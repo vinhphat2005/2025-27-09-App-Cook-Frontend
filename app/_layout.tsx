@@ -5,14 +5,14 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf")
   });
 
   useEffect(() => {
@@ -34,45 +34,70 @@ export default function RootLayout() {
           ...DefaultTheme,
           colors: {
             ...DefaultTheme.colors,
-            background: "white",
-          },
+            background: "white"
+          }
         }}
       >
         <Stack
           screenOptions={{
             headerStyle: {
-              backgroundColor: "#fcd303",
+              backgroundColor: "#fcd303"
             },
             headerTintColor: "#fff",
             headerTitleStyle: {
-              fontWeight: "bold",
-            },
+              fontWeight: "bold"
+            }
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="register" options={{ headerShown: false }} />
-          <Stack.Screen name="search-results" options={{ headerShown: true, title: "Kết quả tìm kiếm" }} />
+          <Stack.Screen
+            name="search-results"
+            options={{ headerShown: true, title: "Kết quả tìm kiếm" }}
+          />
+          <Stack.Screen
+            name="editProfile"
+            options={{
+              headerStyle: {
+                backgroundColor: "white"
+              },
+              headerBackTitle: "Trang cá nhân",
+              headerTitle: "",
+              headerTintColor: "black"
+            }}
+          />
+          <Stack.Screen
+            name="feedback"
+            options={{
+              headerStyle: {
+                backgroundColor: "white"
+              },
+              headerBackTitle: "Công thức",
+              headerTitle: "",
+              headerTintColor: "black"
+            }}
+          />
           <Stack.Screen
             name="detail"
             options={{
-              headerShown: false,
+              headerShown: false
             }}
           />
           <Stack.Screen
             name="notification"
             options={{
               headerStyle: {
-                backgroundColor: "white",
+                backgroundColor: "white"
               },
               headerShown: true,
               headerTitle: "",
               headerBackTitleStyle: {
-                fontSize: 22,
+                fontSize: 22
               },
               headerBackTitle: "Thông báo",
               headerTintColor: "red",
-              headerShadowVisible: false,
+              headerShadowVisible: false
             }}
           />
           <Stack.Screen name="+not-found" />

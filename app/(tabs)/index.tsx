@@ -7,9 +7,26 @@ import { SearchBox } from "@/components/Search/SearchBox";
 import { mockDishes1 } from "@/constants/mock-data";
 import { useRouter } from "expo-router";
 
+
+import { useEffect, useState } from "react";
+import type { Dish } from "@/types";
+import { fetchTodaySuggestions } from "@/lib/api";
+
+
+
 export default function HomeScreen() {
   const router = useRouter();
-
+  const [matches, setMatches] = useState<Dish[]>([]); // ADD: dữ liệu "Gợi ý món phù hợp"
+  useEffect(() => {
+  (async () => {
+    try {
+      const data = await fetchTodaySuggestions({ userId: "1" });
+      setMatches(data); // đây mới là chỗ "lưu" vào matches
+    } catch (err) {
+      console.error(err);
+    }
+  })();
+}, []);
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#f5b402", dark: "#f5b402" }}
@@ -28,7 +45,7 @@ export default function HomeScreen() {
       <View style={styles.productListContainer}>
         <ProductList
           title="Gợi ý món phù hợp"
-          dishes={mockDishes1}
+          dishes={matches}
           onPress={(dish) => {
             router.push(`/detail?id=${dish.id}`);
           }}

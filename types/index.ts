@@ -1,4 +1,7 @@
-export type Dish = {
+// có dữ liệu sẵn ở file mới types/dish.ts nếu có hàm 
+// nào sài thằng này thì chuyển sang thằng kia nha
+// Sợ tự xóa lỗi nên không xóa
+export type Dish = { 
   id: number;
   image: string;
   time: string; // ex: 10 phút
