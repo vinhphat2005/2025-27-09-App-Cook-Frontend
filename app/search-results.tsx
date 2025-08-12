@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Image } from 'expo-image';
+import { useAuthStore } from '@/store/authStore';
 
-
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 export default function SearchResults() {
   const { query, results } = useLocalSearchParams();
   const router = useRouter();
@@ -20,19 +21,60 @@ export default function SearchResults() {
     }
   }, [results]);
 
-  const handleItemPress = (item: any, type: string) => {
+async function logSearchHistory(item: any, type: string) {
+  try {
+   await fetch(`${API_URL}/users/activity/view`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // nếu có token thì thêm Authorization
+        Authorization: `Bearer ${useAuthStore.getState().token}`,
+      },
+      body: JSON.stringify({
+        type, // "dish" hoặc "user"
+        target_id: item.id,
+        name: item.name || item.display_id || "",
+        image: item.image_b64 || item.image_url || item.avatar || "",
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  } catch (err) {
+    console.error("Lỗi gửi lịch sử tìm kiếm:", err);
+  }
+}
+
+const handleItemPress = async (item: any, type: "dish" | "user" | "ingredient") => {
+  try {
+    if (!item) {
+      Alert.alert("Không tìm thấy mục", "Vui lòng thử lại.");
+      return;
+    }
+    if ((type === "dish" || type === "user") && !item.id) {
+      Alert.alert("Thiếu ID", "Không thể mở chi tiết vì thiếu mã định danh.");
+      return;
+    }
+
+    // Gửi log về backend
+    await logSearchHistory(item, type);
+
+    // Điều hướng
     switch (type) {
-      case 'dish':
+      case "dish":
         router.push(`/detail?id=${item.id}`);
         break;
-      case 'user':
+      case "user":
         router.push(`/profile?id=${item.id}`);
         break;
-      case 'ingredient':
-        console.log('Selected ingredient:', item.name);
+      case "ingredient":
+        Alert.alert("Nguyên liệu", item.name ?? "Đã chọn nguyên liệu");
         break;
     }
-  };
+  } catch (e: any) {
+    console.log("handleItemPress error:", e?.message || e);
+    Alert.alert("Lỗi", "Có lỗi xảy ra, vui lòng thử lại.");
+  }
+};
+
 
   if (!searchData) {
     return (
@@ -57,34 +99,39 @@ export default function SearchResults() {
           <Text style={styles.sectionTitle}>
             Món ăn phù hợp ({searchData.dishes.length})
           </Text>
-          {searchData.dishes.map((dish: any) => (
-            <TouchableOpacity
-              key={dish.id}
-              style={styles.item}
-              onPress={() => handleItemPress(dish, 'dish')}
-            >
-              <Image
-                source={{ uri: dish.image_url || 'https://via.placeholder.com/60' }}
-                style={styles.itemImage}
-              />
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{dish.name}</Text>
-                <Text style={styles.itemDetail}>
-                  Thời gian: {dish.cooking_time} phút
-                </Text>
-                {dish.match_percentage && (
-                  <Text style={styles.matchPercentage}>
-                    Khớp: {dish.match_percentage.toFixed(0)}% nguyên liệu
-                  </Text>
-                )}
-                {dish.ingredients && (
-                  <Text style={styles.ingredients}>
-                    Cần: {dish.ingredients.join(', ')}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
+          {searchData.dishes.map((dish: any) => {
+  // GHÉP URI CHO ẢNH
+  const imgUri =
+    dish?.image_b64
+      ? (String(dish.image_b64).startsWith("data:")
+          ? dish.image_b64
+          : `data:${dish.image_mime || "image/jpeg"};base64,${dish.image_b64}`)
+      : (dish?.image_url || "https://via.placeholder.com/60");
+
+  return (
+    <TouchableOpacity
+      key={dish.id}
+      style={styles.item}
+      onPress={() => handleItemPress(dish, "dish")}
+    >
+      <Image source={{ uri: imgUri }} style={styles.itemImage} />
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{dish.name}</Text>
+        <Text style={styles.itemDetail}>Thời gian: {dish.cooking_time} phút</Text>
+        {dish.match_percentage && (
+          <Text style={styles.matchPercentage}>
+            Khớp: {dish.match_percentage.toFixed(0)}% nguyên liệu
+          </Text>
+        )}
+        {dish.ingredients && (
+          <Text style={styles.ingredients}>
+            Cần: {dish.ingredients.join(", ")}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+})}
         </View>
       )}
 

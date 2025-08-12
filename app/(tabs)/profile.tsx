@@ -6,10 +6,10 @@ import { mockDishes1 } from "@/constants/mock-data";
 import { useAuthStore } from "@/store/authStore";
 import EntypoIcon from "@expo/vector-icons/Entypo";
 import FontAweSomeIcon from "@expo/vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons"; // ⬅️ thêm icon thời gian
 
 import { router } from "expo-router";
 import {
-  Button,
   Pressable,
   ScrollView,
   StatusBar,
@@ -17,7 +17,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function PersonalScreen() {
   const { user, logout } = useAuthStore();
@@ -37,14 +36,12 @@ export default function PersonalScreen() {
           />
           <View style={styles.nameContainer}>
             <Text style={styles.nameLabel}>{user?.email}</Text>
-            {/* <Text style={styles.usernameLabel}>@{user?.username}</Text> */}
           </View>
           <View style={styles.editContainer}>
+            {/* Nút sửa hồ sơ */}
             <Pressable
               style={styles.buttonEditProfile}
-              onPress={() => {
-                router.push("/editProfile");
-              }}
+              onPress={() => router.push("/editProfile")}
             >
               <FontAweSomeIcon
                 name="pencil-square-o"
@@ -52,6 +49,16 @@ export default function PersonalScreen() {
                 color="#dc502e"
               />
             </Pressable>
+
+            {/* Nút xem lịch sử */}
+            <Pressable
+              style={styles.buttonHistory}
+              onPress={() => router.push("/view_history")}
+            >
+              <Ionicons name="time-outline" size={30} color="#dc502e" />
+            </Pressable>
+
+            {/* Nút đăng xuất */}
             <Pressable onPress={handleLogout} style={styles.button}>
               <FontAweSomeIcon name="sign-out" size={30} color="#dc502e" />
             </Pressable>
@@ -84,27 +91,10 @@ export default function PersonalScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: StatusBar.currentHeight,
-    paddingBottom: 70,
-    backgroundColor: "pink",
-  },
   scrollView: {
     gap: 10,
     padding: 20,
     paddingBottom: 70,
-  },
-  emailLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  emailValue: {
-    fontSize: 16,
-  },
-
-  buttonText: {
-    color: "white",
   },
   nameLabel: {
     fontSize: 20,
@@ -118,11 +108,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
   },
-  usernameLabel: {
-    fontSize: 16,
-    fontStyle: "italic",
-    color: "#2253ff",
-  },
   userInfoContainer: {
     flexDirection: "column",
     alignItems: "center",
@@ -132,10 +117,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#ff211c",
-    fontWeight: "bold",
-    color: "white",
-    borderRadius: "50%",
-    padding: "auto",
+    borderRadius: 35,
     width: 70,
     height: 70,
     zIndex: 10000,
@@ -145,5 +127,6 @@ const styles = StyleSheet.create({
     gap: 30,
   },
   buttonEditProfile: {},
+  buttonHistory: {}, // để style riêng nếu muốn
   button: {},
 });
