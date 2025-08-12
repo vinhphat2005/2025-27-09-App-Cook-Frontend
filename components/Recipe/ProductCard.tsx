@@ -1,6 +1,7 @@
 import { Dish } from "@/types";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = {
@@ -14,7 +15,7 @@ export const ProductCard = ({
   dish,
   itemsPerRow = 1,
   onPress,
-  onPressFavorite
+  onPressFavorite,
 }: Props) => {
   return (
     <Pressable
@@ -24,8 +25,8 @@ export const ProductCard = ({
         {
           width: `${100 / itemsPerRow}%`,
           height: 200,
-          paddingHorizontal: 5
-        }
+          paddingHorizontal: 5,
+        },
       ]}
       onPress={() => onPress(dish)}
     >
@@ -66,36 +67,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 20,
     overflow: "hidden",
-    marginBottom: 10
+    marginBottom: 10,
   },
   dishImage: {
     width: "100%",
     height: 130,
-    backgroundColor: "gray"
+    backgroundColor: "gray",
   },
   dishInfo: {
     flex: 1,
     flexDirection: "column",
     backgroundColor: "#e6e6e6",
     width: "100%",
-    padding: 10
+    padding: 10,
   },
   dishLabel: {
     fontSize: 16,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
   dishTimeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5
+    gap: 5,
   },
   dishTime: {
     fontSize: 12,
-    color: "gray"
+    color: "gray",
   },
   dishLevel: {
     fontSize: 12,
-    color: "gray"
+    color: "gray",
   },
   socialContainer: {
     position: "absolute",
@@ -106,11 +107,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 10
+    padding: 10,
   },
   dishStarText: {
     fontSize: 16,
-    color: "black"
+    color: "black",
   },
   starContainer: {
     flexDirection: "row",
@@ -119,11 +120,11 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     paddingVertical: 3,
     paddingHorizontal: 10,
-    borderRadius: 20
+    borderRadius: 20,
   },
   dishDescription: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 15
-  }
+    marginTop: 15,
+  },
 });

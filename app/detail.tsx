@@ -1,11 +1,11 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AuthGuard } from "@/components/AuthGuard";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { mockDishes1 } from "@/constants/mock-data";
 import { Dish } from "@/types";
 import { Image } from "expo-image";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 
 export default function TabTwoScreen() {
@@ -37,7 +37,7 @@ export default function TabTwoScreen() {
           style={{
             flexDirection: "row",
             alignItems: "center",
-            marginBottom: 8
+            marginBottom: 8,
           }}
         >
           <Text style={{ fontSize: 18, marginRight: 6 }}>🕒</Text>
@@ -61,6 +61,14 @@ export default function TabTwoScreen() {
             </Text>
           ))}
         </View>
+        <Pressable
+          onPress={() => {
+            router.push(`/feedback?id=${dishData?.id}`);
+          }}
+          style={styles.feedback}
+        >
+          <Text style={styles.contentFeedBack}>Thêm nhận xét và đánh giá</Text>
+        </Pressable>
       </ParallaxScrollView>
     </AuthGuard>
   );
@@ -73,23 +81,36 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 20,
     resizeMode: "cover",
-    backgroundColor: "white"
+    backgroundColor: "white",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginTop: 20
+    marginTop: 20,
   },
   time: {
     fontSize: 16,
-    marginTop: 10
+    marginTop: 10,
   },
   ingredient: {
     fontSize: 16,
-    marginBottom: 8
+    marginBottom: 8,
   },
   step: {
     fontSize: 16,
-    marginBottom: 8
-  }
+    marginBottom: 8,
+  },
+  feedback: {
+    alignItems: "center",
+    borderColor: "gray",
+    borderRadius: 30,
+    padding: 10,
+    marginTop: 10,
+    width: "100%",
+    backgroundColor: "#dc6b46",
+  },
+  contentFeedBack: {
+    fontSize: 30,
+    color: "white",
+  },
 });
