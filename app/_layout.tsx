@@ -55,6 +55,28 @@ export default function RootLayout() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen
+          name="editProfile"
+          options={{
+            headerStyle: {
+              backgroundColor: "white",
+            },
+            headerBackTitle: "Trang cá nhân",
+            headerTitle: "",
+            headerTintColor: "black",
+          }}
+        />
+        <Stack.Screen
+          name="feedback"
+          options={{
+            headerStyle: {
+              backgroundColor: "white",
+            },
+            headerBackTitle: "Công thức",
+            headerTitle: "",
+            headerTintColor: "black",
+          }}
+        />
+        <Stack.Screen
           name="detail"
           options={{
             headerShown: false,

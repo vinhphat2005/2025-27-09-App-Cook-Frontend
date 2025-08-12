@@ -11,7 +11,6 @@ import { ThemedView } from "@/components/ThemedView";
 import { useBottomTabOverflow } from "@/components/ui/TabBarBackground";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useNavigation, useRouter } from "expo-router";
-import { NotificationScreen } from "@/app/notification";
 import { Notification } from "./Notification/Notification";
 
 // const HEADER_HEIGHT = 250;
