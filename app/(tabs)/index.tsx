@@ -1,4 +1,4 @@
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { StyleSheet, Text, View, Alert } from "react-native";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
@@ -12,7 +12,7 @@ import { fetchTodaySuggestions } from "@/lib/api";
 import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
 import { useFocusEffect } from "@react-navigation/native";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.EXPO_PUBLIC_API_URL 
 
 // ✅ Simple cache for "matches" with TTL (5 minutes)
 let _cachedMatches: Dish[] = [];
@@ -24,8 +24,7 @@ export default function HomeScreen() {
   const [matches, setMatches] = useState<Dish[]>([]);
   const [todayDishes, setTodayDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const { token } = useAuthStore();
+  const { token } = useAuthStore(); 
   const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
 
   // ✅ Sync dishes with global favorite updates

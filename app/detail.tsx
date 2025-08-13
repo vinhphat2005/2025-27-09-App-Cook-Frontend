@@ -18,6 +18,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useFocusEffect } from "@react-navigation/native";
 import { cacheGet, cacheSet, cacheDel, cacheClearByPrefix } from "@/lib/simpleCache";
+import { useFavoriteStore } from "@/store/favoriteStore";
 
 // ===== Types =====
 interface DishDetail {
@@ -31,7 +32,11 @@ interface DishDetail {
   creator_id?: string;
   recipe_id?: string;
   created_at?: string;
+  isFavorite?: boolean;
+  creator_name?: string;
+  creator_display_id?: string;
 }
+
 interface RecipeDetail {
   id: string;
   name: string;
@@ -45,11 +50,15 @@ interface RecipeDetail {
   dish_id?: string;
   ratings: number[];
   created_at?: string;
+  creator_name?: string;
+  creator_display_id?: string;
 }
+
 interface DishWithRecipeDetail {
   dish: DishDetail;
   recipe?: RecipeDetail;
 }
+
 interface CommentItem {
   id: string;
   dish_id: string;
@@ -67,6 +76,7 @@ interface CommentItem {
   isLiked?: boolean;
   can_edit?: boolean;
 }
+
 interface UserRatingStatus {
   has_rated: boolean;
   comment_id?: string;
@@ -82,6 +92,8 @@ export default function DishDetailScreen() {
 
   const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "";
   const PAGE_SIZE = 10;
+
+  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
 
   // Helper để lấy userId cho key cache
   const getUserId = useCallback(() => {
@@ -126,6 +138,9 @@ export default function DishDetailScreen() {
   // Menu (3 chấm)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
+  // ✅ Track if view activity was logged to prevent multiple calls
+  const [viewActivityLogged, setViewActivityLogged] = useState(false);
+
   // ===== Helpers =====
   const getAuthHeaders = () => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -135,34 +150,177 @@ export default function DishDetailScreen() {
     return headers;
   };
 
-  // ===== API =====
-  const fetchDishData = async () => {
-    if (!dishId) return;
-
-    const ck = `dish:${dishId}`;
-    const cached = cacheGet<DishWithRecipeDetail>(ck);
-    if (cached) {
-      setDishData(cached);
-      setLoading(false);
-      return;
+  // ✅ Sync with global favorite updates - improved
+  const syncDishWithFavoriteUpdates = useCallback(() => {
+    if (!dishData?.dish) return;
+    
+    const dishNumericId = parseInt(dishData.dish.id);
+    const globalStatus = getFavoriteStatus(dishNumericId);
+    
+    if (globalStatus !== undefined && globalStatus !== dishData.dish.isFavorite) {
+      console.log(`Syncing dish ${dishNumericId} favorite status: ${globalStatus}`);
+      setDishData(prev => prev ? {
+        ...prev,
+        dish: { ...prev.dish, isFavorite: globalStatus }
+      } : null);
     }
+  }, [dishData, getFavoriteStatus]);
+
+  // ✅ Toggle favorite function - improved with error handling
+  const toggleFavorite = useCallback(async () => {
+    if (!dishData?.dish) return;
+    
+    try {
+      if (!token || token === "null" || token === "undefined") {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập để sử dụng tính năng này");
+        router.push("/login");
+        return;
+      }
+
+      const dishNumericId = parseInt(dishData.dish.id);
+      const currentFavoriteStatus = dishData.dish.isFavorite;
+      const newFavoriteStatus = !currentFavoriteStatus;
+
+      // Optimistic update
+      setDishData(prev => prev ? {
+        ...prev,
+        dish: { ...prev.dish, isFavorite: newFavoriteStatus }
+      } : null);
+
+      // Update global store
+      updateFavoriteStatus(dishNumericId, newFavoriteStatus);
+
+      // Call API
+      const response = await fetch(`${API_BASE_URL}/dishes/${dishId}/toggle-favorite`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        // Revert optimistic update on error
+        setDishData(prev => prev ? {
+          ...prev,
+          dish: { ...prev.dish, isFavorite: currentFavoriteStatus }
+        } : null);
+        updateFavoriteStatus(dishNumericId, currentFavoriteStatus);
+        
+        const errorText = await response.text().catch(() => "");
+        throw new Error(`Failed to toggle favorite: ${response.status} ${errorText}`);
+      }
+
+      // Clear cache để force refresh lần sau
+      const ck = `dish:${dishId}`;
+      cacheDel(ck);
+      
+      console.log(`Toggled favorite for dish ${dishNumericId}: ${newFavoriteStatus}`);
+      
+    } catch (err: any) {
+      console.error("Error toggling favorite:", err);
+      Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
+    }
+  }, [dishData, token, router, dishId, updateFavoriteStatus, API_BASE_URL]);
+
+  // ✅ Log view activity - Fixed with proper tracking
+  const logViewActivity = useCallback(async () => {
+    if (!dishId || !token || viewActivityLogged) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/activity/view`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          type: "dish",
+          target_id: dishId,
+          name: dishData?.dish?.name || "",
+          image: dishData?.dish?.image_url || "",
+          timestamp: new Date().toISOString()
+        }),
+      });
+
+      if (response.ok) {
+        console.log(`Logged view activity for dish ${dishId}`);
+        setViewActivityLogged(true);
+      } else {
+        console.log(`View activity failed: ${response.status}`);
+      }
+    } catch (err) {
+      console.log("Error logging view activity:", err);
+    }
+  }, [dishId, token, API_BASE_URL, dishData, viewActivityLogged]);
+
+  // ✅ API =====
+  const fetchDishData = useCallback(async () => {
+    if (!dishId) return;
 
     try {
       setLoading(true);
       setError(null);
+      
+      // Check cache first for better UX
+      const cacheKey = `dish:${dishId}`;
+      const cached = cacheGet<DishWithRecipeDetail>(cacheKey);
+      
+      if (cached) {
+        // Sync favorite status với global store nếu có token
+        if (token && cached.dish) {
+          const dishNumericId = parseInt(cached.dish.id);
+          const globalStatus = getFavoriteStatus(dishNumericId);
+          if (globalStatus !== undefined) {
+            cached.dish.isFavorite = globalStatus;
+          }
+        }
+        setDishData(cached);
+        setLoading(false);
+        
+        // Still fetch fresh data in background
+        fetchFreshDishData();
+        return;
+      }
+      
+      await fetchFreshDishData();
+      
+    } catch (e: any) {
+      setError(e?.message || "Có lỗi xảy ra khi tải dữ liệu");
+      setLoading(false);
+    }
+  }, [dishId, token, getFavoriteStatus]);
+
+  const fetchFreshDishData = async () => {
+    if (!dishId) return;
+
+    try {
       const res = await fetch(`${API_BASE_URL}/dishes/${dishId}/with-recipe`, {
         method: "GET",
         headers: getAuthHeaders(),
       });
+      
       if (!res.ok) {
         if (res.status === 404) throw new Error("Món ăn không tồn tại");
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
+      
       const data: DishWithRecipeDetail = await res.json();
+      
+      // ✅ Sync favorite status với global store nếu có token
+      if (token && data.dish) {
+        const dishNumericId = parseInt(data.dish.id);
+        const globalStatus = getFavoriteStatus(dishNumericId);
+        if (globalStatus !== undefined) {
+          data.dish.isFavorite = globalStatus;
+          console.log(`Loaded dish ${dishNumericId} with favorite status: ${globalStatus}`);
+        }
+      }
+      
       setDishData(data);
-      cacheSet(ck, data, 5 * 60_000);
+      
+      // Cache với thời gian ngắn hơn
+      const cacheKey = `dish:${dishId}`;
+      cacheSet(cacheKey, data, 2 * 60_000); // 2 phút
+      
     } catch (e: any) {
-      setError(e?.message || "Có lỗi xảy ra khi tải dữ liệu");
+      if (loading) {
+        setError(e?.message || "Có lỗi xảy ra khi tải dữ liệu");
+      }
     } finally {
       setLoading(false);
     }
@@ -273,13 +431,18 @@ export default function DishDetailScreen() {
 
   // ===== Handlers =====
   const handleLikeComment = async (commentId: string) => {
+    if (!token || token === "null" || token === "undefined") {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để sử dụng tính năng này");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/comments/${commentId}/like`, {
         method: "POST",
         headers: getAuthHeaders(),
       });
       if (!res.ok) {
-        const t = await res.text();
+        const t = await res.text().catch(() => "");
         throw new Error(`Không thể like/unlike comment: ${t}`);
       }
       const { liked, likes_count } = await res.json();
@@ -296,8 +459,8 @@ export default function DishDetailScreen() {
         if (cmtSkip <= PAGE_SIZE) cacheSet(firstPageKey, updated.slice(0, PAGE_SIZE), 2 * 60_000);
         return updated;
       });
-    } catch (e) {
-      Alert.alert("Lỗi", "Không thể thực hiện hành động này");
+    } catch (e: any) {
+      Alert.alert("Lỗi", e?.message || "Không thể thực hiện hành động này");
     }
   };
 
@@ -306,6 +469,12 @@ export default function DishDetailScreen() {
       Alert.alert("Thông báo", "Vui lòng nhập nội dung trả lời");
       return;
     }
+
+    if (!token || token === "null" || token === "undefined") {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để trả lời bình luận");
+      return;
+    }
+
     try {
       setReplyLoading(true);
       const replyData = {
@@ -319,7 +488,7 @@ export default function DishDetailScreen() {
         body: JSON.stringify(replyData),
       });
       if (!res.ok) {
-        const t = await res.text();
+        const t = await res.text().catch(() => "");
         throw new Error(`Không thể gửi trả lời: ${t}`);
       }
       const newReply: CommentItem = await res.json();
@@ -349,10 +518,12 @@ export default function DishDetailScreen() {
     setEditText(comment.content);
     setActiveDropdown(null);
   };
+
   const handleCancelEdit = () => {
     setEditingComment(null);
     setEditText("");
   };
+
   const handleSubmitEdit = async (commentId: string) => {
     if (!editText.trim()) {
       Alert.alert("Thông báo", "Vui lòng nhập nội dung bình luận");
@@ -366,7 +537,7 @@ export default function DishDetailScreen() {
         body: JSON.stringify({ content: editText.trim() }),
       });
       if (!res.ok) {
-        const errorText = await res.text();
+        const errorText = await res.text().catch(() => "");
         throw new Error(`Không thể cập nhật bình luận: ${errorText}`);
       }
       const updatedComment: CommentItem = await res.json();
@@ -403,6 +574,12 @@ export default function DishDetailScreen() {
   // Bấm "Chỉnh sửa" -> kiểm tra quyền trước
   const handleEditPress = async (comment: CommentItem) => {
     setActiveDropdown(null);
+    
+    if (!token || token === "null" || token === "undefined") {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để chỉnh sửa bình luận");
+      return;
+    }
+
     try {
       const perms = await fetchCommentPermissions(comment.id);
       if (!perms.can_edit) {
@@ -418,6 +595,12 @@ export default function DishDetailScreen() {
   // Bấm "Xóa" -> kiểm tra quyền trước
   const handleDeletePress = async (commentId: string) => {
     setActiveDropdown(null);
+    
+    if (!token || token === "null" || token === "undefined") {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để xóa bình luận");
+      return;
+    }
+
     try {
       const perms = await fetchCommentPermissions(commentId);
       if (!perms.can_delete) {
@@ -437,7 +620,7 @@ export default function DishDetailScreen() {
                 headers: getAuthHeaders(),
               });
               if (!res.ok) {
-                const errorText = await res.text();
+                const errorText = await res.text().catch(() => "");
                 throw new Error(`Không thể xóa bình luận: ${errorText}`);
               }
 
@@ -466,6 +649,13 @@ export default function DishDetailScreen() {
 
   const goToFeedback = () => {
     if (!dishId) return;
+    
+    if (!token || token === "null" || token === "undefined") {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để đánh giá món ăn");
+      router.push("/login");
+      return;
+    }
+
     if (userRatingStatus?.has_rated) {
       Alert.alert("Thông báo", "Bạn đã đánh giá món ăn này rồi. Bạn có muốn chỉnh sửa đánh giá của mình không?", [
         { text: "Hủy", style: "cancel" },
@@ -481,7 +671,9 @@ export default function DishDetailScreen() {
       setShowComments(true);
       if (!commentsLoaded) {
         fetchComments(true);
-        checkUserRating();
+        if (token && token !== "null" && token !== "undefined") {
+          checkUserRating();
+        }
       }
     } else {
       setShowComments(false);
@@ -489,21 +681,39 @@ export default function DishDetailScreen() {
   };
 
   // ===== Effects =====
+  // ✅ Enhanced useFocusEffect để sync favorite
   useFocusEffect(
     useCallback(() => {
-      const cacheKey = `comments:${dishId}:p0:${userId}`;
-      cacheDel(cacheKey);
+      console.log("Detail screen focused, refreshing data...");
+      
+      // Reset view activity logging
+      setViewActivityLogged(false);
+      
+      // Fetch data
       fetchDishData();
 
       if (showComments && commentsLoaded) {
+        // Clear cache để có data mới nhất
+        const cacheKey = `comments:${dishId}:p0:${userId}`;
+        cacheDel(cacheKey);
         fetchComments(true);
-        checkUserRating();
+        if (token && token !== "null" && token !== "undefined") {
+          checkUserRating();
+        }
       }
     }, [dishId, userId, showComments, commentsLoaded])
   );
 
+  // ✅ Log view activity when dish data is loaded
+  useEffect(() => {
+    if (dishData?.dish && !viewActivityLogged) {
+      logViewActivity();
+    }
+  }, [dishData, logViewActivity, viewActivityLogged]);
+
   useEffect(() => {
     if (dishId) {
+      // Clear các cache liên quan khi token hoặc dishId thay đổi
       cacheClearByPrefix(`comments:${dishId}:`);
       cacheClearByPrefix(`userRating:${dishId}:`);
       setCommentsLoaded(false);
@@ -511,6 +721,7 @@ export default function DishDetailScreen() {
       setCmtSkip(0);
       setCmtHasMore(true);
       setUserRatingStatus(null);
+      setViewActivityLogged(false);
     }
   }, [token, dishId]);
 
@@ -520,6 +731,19 @@ export default function DishDetailScreen() {
       return () => clearTimeout(timer);
     }
   }, [activeDropdown]);
+
+  // ✅ Enhanced favorite sync effect
+  useEffect(() => {
+    console.log("Favorite updates changed, syncing...");
+    syncDishWithFavoriteUpdates();
+  }, [favoriteUpdates, syncDishWithFavoriteUpdates]);
+
+  // ✅ Additional effect để sync khi token thay đổi
+  useEffect(() => {
+    if (dishData?.dish) {
+      syncDishWithFavoriteUpdates();
+    }
+  }, [token, syncDishWithFavoriteUpdates]);
 
   // ===== Render Comment =====
   const renderComment = (comment: CommentItem, depth = 0) => {
@@ -621,7 +845,13 @@ export default function DishDetailScreen() {
 
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => setReplyCtx({ parentId: comment.id, replyToUser: comment.user_display_id || "Ẩn danh" })}
+                onPress={() => {
+                  if (!token || token === "null" || token === "undefined") {
+                    Alert.alert("Thông báo", "Vui lòng đăng nhập để trả lời bình luận");
+                    return;
+                  }
+                  setReplyCtx({ parentId: comment.id, replyToUser: comment.user_display_id || "Ẩn danh" });
+                }}
               >
                 <Text style={styles.actionIcon}>💬</Text>
                 <Text style={styles.actionText}>Trả lời</Text>
@@ -666,7 +896,7 @@ export default function DishDetailScreen() {
   };
 
   // ===== Loading / Error =====
-  if (loading) {
+  if (loading && !dishData) {
     return (
       <AuthGuard>
         <View style={styles.loadingContainer}>
@@ -677,11 +907,24 @@ export default function DishDetailScreen() {
     );
   }
 
-  if (error || !dishData) {
+  if (error && !dishData) {
     return (
       <AuthGuard>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>❌ {error || "Không tìm thấy dữ liệu món ăn"}</Text>
+          <Text style={styles.errorText}>❌ {error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchDishData}>
+            <Text style={styles.retryButtonText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      </AuthGuard>
+    );
+  }
+
+  if (!dishData) {
+    return (
+      <AuthGuard>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>❌ Không tìm thấy dữ liệu món ăn</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchDishData}>
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
@@ -724,8 +967,34 @@ export default function DishDetailScreen() {
             )
           }
         >
+          {/* ✅ Header với trái tim favorite */}
           <View style={styles.headerInfo}>
-            <Text style={styles.dishTitle}>{dish.name}</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleAndCreatorContainer}>
+                <Text style={styles.dishTitle}>{dish.name}</Text>
+                {/* ✅ Hiển thị tên người tạo */}
+                {(dish.creator_display_id || dish.creator_name || recipe?.creator_display_id || recipe?.creator_name) && (
+                  <Text style={styles.creatorText}>
+                    Tác giả: {dish.creator_display_id || dish.creator_name || recipe?.creator_display_id || recipe?.creator_name}
+                  </Text>
+                )}
+              </View>
+              
+              {/* ✅ Trái tim favorite kế bên tên món ăn */}
+              <TouchableOpacity 
+                style={styles.favoriteButton} 
+                onPress={toggleFavorite}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.favoriteIcon,
+                  dish.isFavorite && styles.favoriteIconActive
+                ]}>
+                  {dish.isFavorite ? "❤️" : "🤍"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
             <TouchableOpacity style={styles.ratingButton} onPress={goToFeedback}>
               <Text style={styles.ratingIcon}>⭐</Text>
               <Text style={styles.ratingText}>{userRatingStatus?.has_rated ? "Chỉnh sửa" : "Đánh giá"}</Text>
@@ -851,10 +1120,33 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   placeholderText: { fontSize: 48, opacity: 0.6 },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "white", padding: 20 },
-  loadingText: { marginTop: 16, fontSize: 16, color: "#6c757d", fontWeight: "500" },
-  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "white", padding: 24 },
-  errorText: { fontSize: 16, color: "#dc3545", textAlign: "center", marginBottom: 24, lineHeight: 24 },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    backgroundColor: "white", 
+    padding: 20 
+  },
+  loadingText: { 
+    marginTop: 16, 
+    fontSize: 16, 
+    color: "#6c757d", 
+    fontWeight: "500" 
+  },
+  errorContainer: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    backgroundColor: "white", 
+    padding: 24 
+  },
+  errorText: { 
+    fontSize: 16, 
+    color: "#dc3545", 
+    textAlign: "center", 
+    marginBottom: 24, 
+    lineHeight: 24 
+  },
   retryButton: {
     backgroundColor: "#FF8C00",
     paddingHorizontal: 24,
@@ -866,9 +1158,14 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  retryButtonText: { color: "white", fontSize: 16, fontWeight: "600", textAlign: "center" },
+  retryButtonText: { 
+    color: "white", 
+    fontSize: 16, 
+    fontWeight: "600", 
+    textAlign: "center" 
+  },
 
-  // Header info
+  // ✅ Header info với favorite heart
   headerInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -877,7 +1174,57 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 4,
   },
-  dishTitle: { fontSize: 32, fontWeight: "800", flex: 1, marginRight: 16, color: "#212529", lineHeight: 38 },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flex: 1,
+    marginRight: 16,
+  },
+  titleAndCreatorContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  dishTitle: { 
+    fontSize: 32, 
+    fontWeight: "800", 
+    color: "#212529", 
+    lineHeight: 38,
+    marginBottom: 4,
+  },
+  creatorText: {
+    fontSize: 16,
+    fontWeight: "600", 
+    color: "#FF8C00",
+    marginTop: 4,
+    backgroundColor: "#fff3e0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  favoriteButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: "rgba(255, 140, 0, 0.2)",
+  },
+  favoriteIcon: {
+    fontSize: 24,
+    textAlign: "center",
+  },
+  favoriteIconActive: {
+    transform: [{ scale: 1.1 }],
+  },
+  
   ratingButton: {
     backgroundColor: "#FF8C00",
     flexDirection: "row",
@@ -894,7 +1241,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ratingIcon: { fontSize: 16, marginRight: 6 },
-  ratingText: { color: "white", fontWeight: "700", fontSize: 14, letterSpacing: 0.5 },
+  ratingText: { 
+    color: "white", 
+    fontWeight: "700", 
+    fontSize: 14, 
+    letterSpacing: 0.5 
+  },
 
   // User rating status
   userRatingStatus: {
@@ -910,8 +1262,17 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  userRatingText: { fontSize: 16, fontWeight: "600", color: "#155724", marginBottom: 4 },
-  userRatingDate: { fontSize: 13, color: "#6c757d", fontStyle: "italic" },
+  userRatingText: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#155724", 
+    marginBottom: 4 
+  },
+  userRatingDate: { 
+    fontSize: 13, 
+    color: "#6c757d", 
+    fontStyle: "italic" 
+  },
   editBtn: { backgroundColor: "#6f42c1" },
 
   // Info row
@@ -925,9 +1286,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#dee2e6",
   },
-  timeInfo: { flexDirection: "row", alignItems: "center", marginRight: 24, flex: 1 },
+  timeInfo: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginRight: 24, 
+    flex: 1 
+  },
   timeIcon: { fontSize: 20, marginRight: 8 },
-  timeText: { fontSize: 16, color: "#495057", fontWeight: "500" },
+  timeText: { 
+    fontSize: 16, 
+    color: "#495057", 
+    fontWeight: "500" 
+  },
   ratingInfo: {
     flexDirection: "row",
     alignItems: "center",
@@ -939,7 +1309,11 @@ const styles = StyleSheet.create({
     borderColor: "#ffeaa7",
   },
   starIcon: { fontSize: 18, marginRight: 6 },
-  ratingValue: { fontSize: 16, color: "#856404", fontWeight: "700" },
+  ratingValue: { 
+    fontSize: 16, 
+    color: "#856404", 
+    fontWeight: "700" 
+  },
 
   // Titles
   sectionTitle: {
@@ -966,8 +1340,19 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  ingredient: { fontSize: 16, marginBottom: 12, lineHeight: 24, color: "#495057", paddingLeft: 8 },
-  bulletPoint: { marginRight: 12, color: "#FF8C00", fontWeight: "bold", fontSize: 18 },
+  ingredient: { 
+    fontSize: 16, 
+    marginBottom: 12, 
+    lineHeight: 24, 
+    color: "#495057", 
+    paddingLeft: 8 
+  },
+  bulletPoint: { 
+    marginRight: 12, 
+    color: "#FF8C00", 
+    fontWeight: "bold", 
+    fontSize: 18 
+  },
 
   // Instructions
   instructionsContainer: {
@@ -1001,7 +1386,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff3e0",
     borderRadius: 16,
   },
-  instructionText: { fontSize: 16, lineHeight: 24, flex: 1, color: "#495057" },
+  instructionText: { 
+    fontSize: 16, 
+    lineHeight: 24, 
+    flex: 1, 
+    color: "#495057" 
+  },
 
   // Additional info
   additionalInfo: {
@@ -1014,7 +1404,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#2196f3",
   },
-  difficultyLabel: { fontSize: 16, fontWeight: "600", color: "#1565c0" },
+  difficultyLabel: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#1565c0" 
+  },
   difficultyValue: {
     fontSize: 16,
     color: "#FF8C00",
@@ -1062,7 +1456,12 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  writeBtnText: { color: "white", fontWeight: "700", fontSize: 14, letterSpacing: 0.5 },
+  writeBtnText: { 
+    color: "white", 
+    fontWeight: "700", 
+    fontSize: 14, 
+    letterSpacing: 0.5 
+  },
 
   commentsContainer: {
     backgroundColor: "white",
@@ -1072,15 +1471,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
-    overflow: "visible", // ✅ để dropdown không bị cắt
+    overflow: "visible",
   },
 
   // Comment items
   cmtItem: {
-    position: "relative", // ✅ để menu bám góc
+    position: "relative",
     backgroundColor: "white",
     padding: 16,
-    paddingRight: 48, // ✅ chừa chỗ cho nút 3 chấm
+    paddingRight: 48,
     borderBottomWidth: 1,
     borderBottomColor: "#f1f3f4",
     marginBottom: 8,
@@ -1094,16 +1493,48 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingLeft: 12,
   },
-  cmtHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  cmtUserInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
-  cmtUser: { fontSize: 16, fontWeight: "700", color: "#212529", marginRight: 8 },
+  cmtHeaderRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginBottom: 8 
+  },
+  cmtUserInfo: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    flex: 1 
+  },
+  cmtUser: { 
+    fontSize: 16, 
+    fontWeight: "700", 
+    color: "#212529", 
+    marginRight: 8 
+  },
   cmtStars: { fontSize: 14, marginLeft: 4 },
-  cmtContent: { fontSize: 16, lineHeight: 24, color: "#495057", marginBottom: 12 },
+  cmtContent: { 
+    fontSize: 16, 
+    lineHeight: 24, 
+    color: "#495057", 
+    marginBottom: 12 
+  },
 
   // Footer
-  cmtFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
-  cmtTime: { fontSize: 13, color: "#6c757d", fontStyle: "italic", flex: 1 },
-  cmtActions: { flexDirection: "row", alignItems: "center" },
+  cmtFooter: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginTop: 8 
+  },
+  cmtTime: { 
+    fontSize: 13, 
+    color: "#6c757d", 
+    fontStyle: "italic", 
+    flex: 1 
+  },
+  cmtActions: { 
+    flexDirection: "row", 
+    alignItems: "center" 
+  },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1115,14 +1546,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e9ecef",
   },
-  likedBtn: { backgroundColor: "#ffe8e8", borderColor: "#ffcccb" },
+  likedBtn: { 
+    backgroundColor: "#ffe8e8", 
+    borderColor: "#ffcccb" 
+  },
   actionIcon: { fontSize: 14, marginRight: 4 },
   likedIcon: { color: "#dc3545" },
-  actionText: { fontSize: 12, color: "#6c757d", fontWeight: "600" },
+  actionText: { 
+    fontSize: 12, 
+    color: "#6c757d", 
+    fontWeight: "600" 
+  },
   likedText: { color: "#dc3545" },
 
   // Reply
-  repliesContainer: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#e9ecef" },
+  repliesContainer: { 
+    marginTop: 12, 
+    paddingTop: 12, 
+    borderTopWidth: 1, 
+    borderTopColor: "#e9ecef" 
+  },
   replyInputContainer: {
     marginTop: 16,
     padding: 16,
@@ -1131,7 +1574,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#dee2e6",
   },
-  replyToText: { fontSize: 14, color: "#6c757d", fontWeight: "600", marginBottom: 8, fontStyle: "italic" },
+  replyToText: { 
+    fontSize: 14, 
+    color: "#6c757d", 
+    fontWeight: "600", 
+    marginBottom: 8, 
+    fontStyle: "italic" 
+  },
   replyInput: {
     borderWidth: 1,
     borderColor: "#ced4da",
@@ -1143,18 +1592,44 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     marginBottom: 12,
   },
-  replyButtons: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center" },
-  cancelReplyBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginRight: 12, backgroundColor: "#6c757d" },
-  cancelReplyText: { color: "white", fontSize: 14, fontWeight: "600" },
-  submitReplyBtn: { backgroundColor: "#FF8C00", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, minWidth: 60, alignItems: "center", justifyContent: "center" },
-  submitReplyText: { color: "white", fontSize: 14, fontWeight: "700" },
+  replyButtons: { 
+    flexDirection: "row", 
+    justifyContent: "flex-end", 
+    alignItems: "center" 
+  },
+  cancelReplyBtn: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 8, 
+    marginRight: 12, 
+    backgroundColor: "#6c757d" 
+  },
+  cancelReplyText: { 
+    color: "white", 
+    fontSize: 14, 
+    fontWeight: "600" 
+  },
+  submitReplyBtn: { 
+    backgroundColor: "#FF8C00", 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 8, 
+    minWidth: 60, 
+    alignItems: "center", 
+    justifyContent: "center" 
+  },
+  submitReplyText: { 
+    color: "white", 
+    fontSize: 14, 
+    fontWeight: "700" 
+  },
   disabledBtn: { opacity: 0.6 },
 
   // Dropdown menu (3 chấm)
   menuContainer: {
     position: "absolute",
-    top: 8,     // ✅ đúng góc trên
-    right: 8,   // ✅ đúng góc phải
+    top: 8,
+    right: 8,
     zIndex: 1000,
   },
   menuButton: {
@@ -1165,10 +1640,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.04)",
   },
-  menuIcon: { fontSize: 18, color: "#6c757d", fontWeight: "bold", lineHeight: 18 },
+  menuIcon: { 
+    fontSize: 18, 
+    color: "#6c757d", 
+    fontWeight: "bold", 
+    lineHeight: 18 
+  },
   dropdownMenu: {
     position: "absolute",
-    top: 36, // bung xuống
+    top: 36,
     right: 0,
     backgroundColor: "white",
     borderRadius: 8,
@@ -1182,11 +1662,30 @@ const styles = StyleSheet.create({
     minWidth: 140,
     zIndex: 1001,
   },
-  dropdownItem: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10 },
-  dropdownIcon: { fontSize: 14, marginRight: 8, width: 18, textAlign: "center" },
-  dropdownText: { fontSize: 14, color: "#495057", fontWeight: "500", flex: 1 },
+  dropdownItem: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    paddingHorizontal: 12, 
+    paddingVertical: 10 
+  },
+  dropdownIcon: { 
+    fontSize: 14, 
+    marginRight: 8, 
+    width: 18, 
+    textAlign: "center" 
+  },
+  dropdownText: { 
+    fontSize: 14, 
+    color: "#495057", 
+    fontWeight: "500", 
+    flex: 1 
+  },
   deleteText: { color: "#dc3545" },
-  dropdownSeparator: { height: 1, backgroundColor: "#e9ecef", marginHorizontal: 8 },
+  dropdownSeparator: { 
+    height: 1, 
+    backgroundColor: "#e9ecef", 
+    marginHorizontal: 8 
+  },
 
   // States
   cmtError: {
@@ -1212,7 +1711,11 @@ const styles = StyleSheet.create({
     borderColor: "#e9ecef",
     borderStyle: "dashed",
   },
-  loadingMore: { padding: 20, alignItems: "center", justifyContent: "center" },
+  loadingMore: { 
+    padding: 20, 
+    alignItems: "center", 
+    justifyContent: "center" 
+  },
   moreBtn: {
     backgroundColor: "#e9ecef",
     paddingHorizontal: 24,
@@ -1224,47 +1727,57 @@ const styles = StyleSheet.create({
     borderColor: "#dee2e6",
     borderStyle: "dashed",
   },
-  moreBtnText: { fontSize: 15, color: "#495057", fontWeight: "600" },
+  moreBtnText: { 
+    fontSize: 15, 
+    color: "#495057", 
+    fontWeight: "600" 
+  },
+  
   // Edit System
-editContainer: {
-  marginTop: 8,
-  marginBottom: 12,
-},
-editInput: {
-  borderWidth: 1,
-  borderColor: "#ced4da",
-  borderRadius: 8,
-  padding: 12,
-  fontSize: 16,
-  backgroundColor: "white",
-  minHeight: 80,
-  textAlignVertical: "top",
-  marginBottom: 12,
-},
-editButtons: {
-  flexDirection: "row",
-  justifyContent: "flex-end",
-  alignItems: "center",
-},
-cancelEditBtn: {
-  paddingHorizontal: 16,
-  paddingVertical: 8,
-  borderRadius: 8,
-  marginRight: 12,
-  backgroundColor: "#6c757d",
-},
-saveEditBtn: {
-  backgroundColor: "#28a745",
-  paddingHorizontal: 16,
-  paddingVertical: 8,
-  borderRadius: 8,
-  minWidth: 60,
-  alignItems: "center",
-  justifyContent: "center",
-},
-// (tuỳ chọn nhưng nên có)
-cancelEditText: { color: "white", fontSize: 14, fontWeight: "600" },
-saveEditText:   { color: "white", fontSize: 14, fontWeight: "700" },
-
-
+  editContainer: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: "#ced4da",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "white",
+    minHeight: 80,
+    textAlignVertical: "top",
+    marginBottom: 12,
+  },
+  editButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  cancelEditBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: "#6c757d",
+  },
+  saveEditBtn: {
+    backgroundColor: "#28a745",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelEditText: { 
+    color: "white", 
+    fontSize: 14, 
+    fontWeight: "600" 
+  },
+  saveEditText: { 
+    color: "white", 
+    fontSize: 14, 
+    fontWeight: "700" 
+  },
 });

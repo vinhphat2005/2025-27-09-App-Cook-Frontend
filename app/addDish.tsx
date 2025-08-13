@@ -9,11 +9,14 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
 import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AddDish() {
   const { user, token, requireAuth } = useAuth();
@@ -272,186 +275,220 @@ export default function AddDish() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <Text style={styles.title}>Tạo món ăn mới</Text>
-      
-      {/* Image Upload */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ảnh món ăn *</Text>
-        <TouchableOpacity style={styles.imageUpload} onPress={showImagePicker}>
-          {image ? (
-            <>
-              <Image source={{ uri: image }} style={styles.uploadedImage} />
-              <View style={styles.imageOverlay}>
-                <Ionicons name="camera" size={24} color="white" />
-                <Text style={styles.changeImageText}>Đổi ảnh</Text>
-              </View>
-            </>
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="camera" size={40} color="#999" />
-              <Text style={styles.imagePlaceholderText}>Chọn ảnh</Text>
-              <Text style={styles.imageHint}>Nhấn để chọn từ thư viện hoặc chụp ảnh</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Dish Name */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tên món ăn *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nhập tên món ăn..."
-          value={dishName}
-          onChangeText={setDishName}
-          maxLength={100}
-        />
-        <Text style={styles.charCount}>{dishName.length}/100</Text>
-      </View>
-
-      {/* Cooking Time */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Thời gian nấu (phút) *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ví dụ: 30"
-          value={cookingTime}
-          onChangeText={setCookingTime}
-          keyboardType="numeric"
-          maxLength={4}
-        />
-      </View>
-
-      {/* Difficulty */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Độ khó</Text>
-        <View style={styles.difficultyContainer}>
-          {['Dễ', 'Trung bình', 'Khó'].map((level) => (
-            <TouchableOpacity
-              key={level}
-              style={[
-                styles.difficultyButton,
-                difficulty === level && styles.difficultyButtonActive
-              ]}
-              onPress={() => setDifficulty(level)}
-            >
-              <Text style={[
-                styles.difficultyText,
-                difficulty === level && styles.difficultyTextActive
-              ]}>
-                {level}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Recipe Description */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Mô tả công thức</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Mô tả ngắn về món ăn..."
-          value={recipeDescription}
-          onChangeText={setRecipeDescription}
-          multiline
-          numberOfLines={3}
-          maxLength={500}
-        />
-        <Text style={styles.charCount}>{recipeDescription.length}/500</Text>
-      </View>
-
-      {/* Ingredients */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Nguyên liệu * ({ingredients.filter(i => i.trim()).length})</Text>
-          <TouchableOpacity onPress={addIngredient} style={styles.addButton}>
-            <Ionicons name="add" size={24} color="#dc502e" />
-          </TouchableOpacity>
-        </View>
-        {ingredients.map((ingredient, index) => (
-          <View key={index} style={styles.inputRow}>
-            <TextInput
-              style={[styles.input, styles.inputFlex]}
-              placeholder={`Nguyên liệu ${index + 1}...`}
-              value={ingredient}
-              onChangeText={(value) => updateIngredient(index, value)}
-              maxLength={100}
-            />
-            {ingredients.length > 1 && (
-              <TouchableOpacity
-                onPress={() => removeIngredient(index)}
-                style={styles.removeButton}
-              >
-                <Ionicons name="trash" size={20} color="#ff4444" />
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-      </View>
-
-      {/* Instructions */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Hướng dẫn nấu * ({instructions.filter(i => i.trim()).length})</Text>
-          <TouchableOpacity onPress={addInstruction} style={styles.addButton}>
-            <Ionicons name="add" size={24} color="#dc502e" />
-          </TouchableOpacity>
-        </View>
-        {instructions.map((instruction, index) => (
-          <View key={index} style={styles.inputRow}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>{index + 1}</Text>
-            </View>
-            <TextInput
-              style={[styles.input, styles.inputFlex]}
-              placeholder={`Bước ${index + 1}...`}
-              value={instruction}
-              onChangeText={(value) => updateInstruction(index, value)}
-              multiline
-              maxLength={300}
-            />
-            {instructions.length > 1 && (
-              <TouchableOpacity
-                onPress={() => removeInstruction(index)}
-                style={styles.removeButton}
-              >
-                <Ionicons name="trash" size={20} color="#ff4444" />
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-      </View>
-
-      {/* Create Button */}
-      <TouchableOpacity
-        style={[styles.createButton, loading && styles.createButtonDisabled]}
-        onPress={createDish}
-        disabled={loading}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color="white" size="small" />
-            <Text style={styles.loadingText}>Đang tạo món ăn...</Text>
+        <ScrollView 
+          style={styles.container} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+        >
+          {/* Header */}
+          <Text style={styles.title}>Tạo món ăn mới</Text>
+          
+          {/* Image Upload */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ảnh món ăn *</Text>
+            <TouchableOpacity style={styles.imageUpload} onPress={showImagePicker}>
+              {image ? (
+                <>
+                  <Image source={{ uri: image }} style={styles.uploadedImage} />
+                  <View style={styles.imageOverlay}>
+                    <Ionicons name="camera" size={24} color="white" />
+                    <Text style={styles.changeImageText}>Đổi ảnh</Text>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="camera" size={40} color="#999" />
+                  <Text style={styles.imagePlaceholderText}>Chọn ảnh</Text>
+                  <Text style={styles.imageHint}>Nhấn để chọn từ thư viện hoặc chụp ảnh</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
-        ) : (
-          <Text style={styles.createButtonText}>Tạo món ăn</Text>
-        )}
-      </TouchableOpacity>
 
-      {/* Bottom spacing */}
-      <View style={{ height: 50 }} />
-    </ScrollView>
+          {/* Dish Name */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tên món ăn *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập tên món ăn..."
+              value={dishName}
+              onChangeText={setDishName}
+              maxLength={100}
+              returnKeyType="next"
+            />
+            <Text style={styles.charCount}>{dishName.length}/100</Text>
+          </View>
+
+          {/* Cooking Time */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thời gian nấu (phút) *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ví dụ: 30"
+              value={cookingTime}
+              onChangeText={setCookingTime}
+              keyboardType="numeric"
+              maxLength={4}
+              returnKeyType="next"
+            />
+          </View>
+
+          {/* Difficulty */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Độ khó</Text>
+            <View style={styles.difficultyContainer}>
+              {['Dễ', 'Trung bình', 'Khó'].map((level) => (
+                <TouchableOpacity
+                  key={level}
+                  style={[
+                    styles.difficultyButton,
+                    difficulty === level && styles.difficultyButtonActive
+                  ]}
+                  onPress={() => setDifficulty(level)}
+                >
+                  <Text style={[
+                    styles.difficultyText,
+                    difficulty === level && styles.difficultyTextActive
+                  ]}>
+                    {level}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Recipe Description */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Mô tả công thức</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Mô tả ngắn về món ăn..."
+              value={recipeDescription}
+              onChangeText={setRecipeDescription}
+              multiline
+              numberOfLines={3}
+              maxLength={500}
+              returnKeyType="next"
+              textAlignVertical="top"
+            />
+            <Text style={styles.charCount}>{recipeDescription.length}/500</Text>
+          </View>
+
+          {/* Ingredients */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Nguyên liệu * ({ingredients.filter(i => i.trim()).length})</Text>
+              <TouchableOpacity onPress={addIngredient} style={styles.addButton}>
+                <Ionicons name="add" size={24} color="#dc502e" />
+              </TouchableOpacity>
+            </View>
+            {ingredients.map((ingredient, index) => (
+              <View key={index} style={styles.inputRow}>
+                <View style={styles.ingredientNumber}>
+                  <Text style={styles.ingredientNumberText}>{index + 1}</Text>
+                </View>
+                <TextInput
+                  style={[styles.input, styles.inputFlex]}
+                  placeholder={`Nguyên liệu ${index + 1}...`}
+                  value={ingredient}
+                  onChangeText={(value) => updateIngredient(index, value)}
+                  maxLength={100}
+                  returnKeyType={index === ingredients.length - 1 ? "done" : "next"}
+                  blurOnSubmit={false}
+                />
+                {ingredients.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => removeIngredient(index)}
+                    style={styles.removeButton}
+                  >
+                    <Ionicons name="trash" size={18} color="#ff4444" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+
+          {/* Instructions */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Hướng dẫn nấu * ({instructions.filter(i => i.trim()).length})</Text>
+              <TouchableOpacity onPress={addInstruction} style={styles.addButton}>
+                <Ionicons name="add" size={24} color="#dc502e" />
+              </TouchableOpacity>
+            </View>
+            {instructions.map((instruction, index) => (
+              <View key={index} style={styles.instructionRow}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepNumberText}>{index + 1}</Text>
+                </View>
+                <TextInput
+                  style={[styles.input, styles.inputFlex, styles.instructionInput]}
+                  placeholder={`Bước ${index + 1}...`}
+                  value={instruction}
+                  onChangeText={(value) => updateInstruction(index, value)}
+                  multiline
+                  maxLength={300}
+                  returnKeyType="done"
+                  textAlignVertical="top"
+                />
+                {instructions.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => removeInstruction(index)}
+                    style={styles.removeButton}
+                  >
+                    <Ionicons name="trash" size={18} color="#ff4444" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+
+          {/* Create Button */}
+          <TouchableOpacity
+            style={[styles.createButton, loading && styles.createButtonDisabled]}
+            onPress={createDish}
+            disabled={loading}
+          >
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="white" size="small" />
+                <Text style={styles.loadingText}>Đang tạo món ăn...</Text>
+              </View>
+            ) : (
+              <Text style={styles.createButtonText}>Tạo món ăn</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Bottom spacing for keyboard */}
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+  },
+  scrollContainer: {
     padding: 20,
+    paddingBottom: 100, // Extra padding for keyboard
   },
   title: {
     fontSize: 24,
@@ -461,13 +498,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 24, // Increased spacing
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
@@ -482,9 +519,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    minHeight: 44, // Minimum touch target
   },
   textArea: {
     height: 80,
+    textAlignVertical: 'top',
+  },
+  instructionInput: {
+    minHeight: 60, // Taller for multi-line instructions
     textAlignVertical: 'top',
   },
   charCount: {
@@ -495,11 +537,31 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    minHeight: 44,
+  },
+  instructionRow: {
+    flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   inputFlex: {
     flex: 1,
+  },
+  ingredientNumber: {
+    backgroundColor: '#f5b402',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  ingredientNumberText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   stepNumber: {
     backgroundColor: '#dc502e',
@@ -508,8 +570,8 @@ const styles = StyleSheet.create({
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
-    marginTop: 12,
+    marginRight: 12,
+    marginTop: 12, // Align with text input
   },
   stepNumberText: {
     color: 'white',
@@ -525,18 +587,26 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   removeButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ff4444',
     borderRadius: 20,
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
-    marginTop: 12,
+    marginLeft: 12,
+    marginTop: 4, // Align better with input
   },
   imageUpload: {
     backgroundColor: 'white',
@@ -596,6 +666,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
+    minHeight: 44,
   },
   difficultyButtonActive: {
     backgroundColor: '#dc502e',
@@ -623,6 +694,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    minHeight: 52,
   },
   createButtonDisabled: {
     backgroundColor: '#ccc',
@@ -640,5 +712,8 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     marginLeft: 8,
+  },
+  bottomSpacing: {
+    height: 120, // Extra space for keyboard on iOS
   },
 });
