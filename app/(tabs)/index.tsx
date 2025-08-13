@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, Alert } from "react-native";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
 import { SearchBox } from "@/components/Search/SearchBox";
-import { mockDishes1 } from "@/constants/mock-data";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
@@ -13,10 +12,9 @@ import { fetchTodaySuggestions } from "@/lib/api";
 import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
 import { useFocusEffect } from "@react-navigation/native";
 
-// --- ENV / API ---
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// --- SIMPLE IN-FILE CACHE (TTL) cho "matches" ---
+// ✅ Simple cache for "matches" with TTL (5 minutes)
 let _cachedMatches: Dish[] = [];
 let _cachedAt = 0;
 const MATCHES_TTL_MS = 5 * 60 * 1000; // 5 phút
@@ -30,7 +28,7 @@ export default function HomeScreen() {
   const { token } = useAuthStore();
   const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
 
-  // Đồng bộ trạng thái yêu thích từ global store vào danh sách hiện tại
+  // ✅ Sync dishes with global favorite updates
   const syncWithFavoriteUpdates = useCallback(
     (dishes: Dish[]) => {
       return dishes.map((dish) => {
@@ -41,30 +39,31 @@ export default function HomeScreen() {
     [getFavoriteStatus]
   );
 
-  // Fetch gợi ý + đồng bộ yêu thích + cache
+  // ✅ Fetch suggestions with caching + sync favorites
   const fetchSuggestions = useCallback(async () => {
     try {
       setLoading(true);
 
-      // 1) Dùng cache cho "matches" nếu còn hạn -> hiển thị nhanh
+      // 1) Use cache for "matches" if still valid -> display faster
       const now = Date.now();
       if (_cachedMatches.length && now - _cachedAt < MATCHES_TTL_MS) {
+        console.log("Using cached matches data");
         setMatches(syncWithFavoriteUpdates(_cachedMatches));
       }
 
-      // 2) Luôn fetch mới để cập nhật
+      // 2) Always fetch new data for updates
       const matchData = await fetchTodaySuggestions({ userId: "1" });
-
-      // chuẩn hoá danh sách "today" từ mock + mặc định isFavorite=false
-      const transformedTodayDishes = mockDishes1.map((dish) => ({
-        ...dish,
-        isFavorite: false,
-      }));
+      
+      // ✅ Use same data for "today suggestions" but slice/shuffle for variety
+      const todayDishesData = [...matchData]
+        .sort(() => Math.random() - 0.5) // Shuffle for variety
+        .slice(0, 6); // Take first 6 items
 
       if (token) {
+        // Update favorite status for logged in users
         const [updatedMatches, updatedTodayDishes] = await Promise.all([
           updateDishesWithFavoriteStatus(matchData),
-          updateDishesWithFavoriteStatus(transformedTodayDishes),
+          updateDishesWithFavoriteStatus(todayDishesData),
         ]);
 
         const syncedMatches = syncWithFavoriteUpdates(updatedMatches);
@@ -73,16 +72,18 @@ export default function HomeScreen() {
         setMatches(syncedMatches);
         setTodayDishes(syncedToday);
 
-        // 3) Cập nhật cache từ dữ liệu mới nhất (không nên cache theo user)
+        // 3) Update cache with latest data (don't cache user-specific data)
         _cachedMatches = updatedMatches;
         _cachedAt = Date.now();
       } else {
-        // Chưa đăng nhập: giữ isFavorite=false
+        // Not logged in: keep isFavorite=false
         const anonymousMatches = matchData.map((d) => ({ ...d, isFavorite: false }));
+        const anonymousTodayDishes = todayDishesData.map((d) => ({ ...d, isFavorite: false }));
+        
         setMatches(syncWithFavoriteUpdates(anonymousMatches));
-        setTodayDishes(transformedTodayDishes);
+        setTodayDishes(syncWithFavoriteUpdates(anonymousTodayDishes));
 
-        // Cập nhật cache
+        // Update cache
         _cachedMatches = anonymousMatches;
         _cachedAt = Date.now();
       }
@@ -93,7 +94,7 @@ export default function HomeScreen() {
     }
   }, [token, syncWithFavoriteUpdates]);
 
-  // Sync UI khi favoriteUpdates đổi
+  // ✅ Sync UI when favoriteUpdates change
   useEffect(() => {
     if (Object.keys(favoriteUpdates).length > 0) {
       setMatches((prev) => syncWithFavoriteUpdates(prev));
@@ -101,7 +102,7 @@ export default function HomeScreen() {
     }
   }, [favoriteUpdates, syncWithFavoriteUpdates]);
 
-  // Refresh khi màn hình focus (đảm bảo đồng bộ yêu thích mới nhất)
+  // ✅ Refresh when screen comes into focus (ensure latest favorite sync)
   useFocusEffect(
     useCallback(() => {
       setMatches((prev) => syncWithFavoriteUpdates(prev));
@@ -109,7 +110,7 @@ export default function HomeScreen() {
     }, [syncWithFavoriteUpdates])
   );
 
-  // Toggle favorite (optimistic UI + đồng bộ global store)
+  // ✅ Toggle favorite (optimistic UI + sync global store)
   const toggleFavorite = useCallback(
     async (dishId: number) => {
       try {
@@ -120,7 +121,7 @@ export default function HomeScreen() {
           return;
         }
 
-        // Lấy trạng thái hiện tại
+        // Get current favorite status
         const currentDish = [...matches, ...todayDishes].find((d) => d.id === dishId);
         const newFavoriteStatus = !currentDish?.isFavorite;
 
@@ -132,10 +133,10 @@ export default function HomeScreen() {
           prev.map((dish) => (dish.id === dishId ? { ...dish, isFavorite: newFavoriteStatus } : dish))
         );
 
-        // Cập nhật global store
+        // Update global store
         updateFavoriteStatus(dishId, newFavoriteStatus);
 
-        // Gọi API
+        // Call API
         const response = await fetch(`${API_URL}/dishes/${dishId}/toggle-favorite`, {
           method: "POST",
           headers: {
@@ -145,7 +146,7 @@ export default function HomeScreen() {
         });
 
         if (!response.ok) {
-          // Revert optimistic khi lỗi
+          // Revert optimistic update on error
           setMatches((prev) =>
             prev.map((dish) => (dish.id === dishId ? { ...dish, isFavorite: !newFavoriteStatus } : dish))
           );
@@ -163,7 +164,7 @@ export default function HomeScreen() {
     [router, matches, todayDishes, updateFavoriteStatus]
   );
 
-  // Khi bấm vào món: log lịch sử xem (nếu đã đăng nhập), sau đó điều hướng
+  // ✅ Handle dish press: log view history (if logged in) then navigate
   const handleDishPress = useCallback(
     async (dish: Dish) => {
       try {
@@ -185,6 +186,7 @@ export default function HomeScreen() {
     [router]
   );
 
+  // ✅ Initial data fetch
   useEffect(() => {
     fetchSuggestions();
   }, [fetchSuggestions]);
@@ -221,9 +223,9 @@ export default function HomeScreen() {
           onPress={handleDishPress}
           onPressFavorite={toggleFavorite}
           itemsPerRow={2}
-          loading={false}
+          loading={loading}
           emptyMessage="Không có gợi ý món ăn hôm nay"
-          emptySubMessage="Hãy quay lại sau để xem gợi ý mới!"
+          emptySubMessage="Hãy thử nhập nguyên liệu để tìm món ăn!"
         />
       </View>
     </ParallaxScrollView>
