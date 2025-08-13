@@ -6,7 +6,7 @@ import { mockDishes1 } from "@/constants/mock-data";
 import { useAuthStore } from "@/store/authStore";
 import EntypoIcon from "@expo/vector-icons/Entypo";
 import FontAweSomeIcon from "@expo/vector-icons/FontAwesome";
-import { Ionicons } from "@expo/vector-icons"; // ⬅️ thêm icon thời gian
+import { Ionicons } from "@expo/vector-icons"; 
 
 import { router } from "expo-router";
 import {
