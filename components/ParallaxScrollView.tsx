@@ -12,15 +12,14 @@ import { useBottomTabOverflow } from "@/components/ui/TabBarBackground";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useNavigation, useRouter } from "expo-router";
 import { Notification } from "./Notification/Notification";
-
-// const HEADER_HEIGHT = 250;
-
+import type { RefreshControlProps } from "react-native";
 type Props = PropsWithChildren<{
   headerImage: ReactElement;
   headerBackgroundColor: { dark: string; light: string };
   headerHeight?: number;
   includeBottomTab?: boolean;
   showBackButton?: boolean;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
 }>;
 
 export default function ParallaxScrollView({
@@ -30,6 +29,7 @@ export default function ParallaxScrollView({
   headerHeight = 250,
   includeBottomTab = false,
   showBackButton = false,
+  refreshControl,
 }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
@@ -71,7 +71,7 @@ export default function ParallaxScrollView({
           }}
           style={styles.backButton}
         >
-          <Text style={{ color: "#fff", fontSize: 22 }}>←</Text>
+          <Text style={{ color: "#fff", fontSize: 22 }}>{"<"}</Text>
         </Pressable>
       )}
 
@@ -89,6 +89,7 @@ export default function ParallaxScrollView({
         scrollEventThrottle={16}
         scrollIndicatorInsets={{ bottom }}
         contentContainerStyle={{ paddingBottom: bottom }}
+        refreshControl={refreshControl}
       >
         <Animated.View
           style={[

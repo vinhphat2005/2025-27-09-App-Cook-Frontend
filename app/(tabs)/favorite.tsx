@@ -1,11 +1,13 @@
 import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { ProductCard } from "@/components/Recipe/ProductCard";
+import { ProductList } from "@/components/Profile/ProductList";
 import { useAuthStore } from "@/store/authStore";
+import { useFavoriteStore } from "@/store/favoriteStore"; // Import favorite store
 import { Dish } from "@/types";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { StyleSheet, Text, View, ActivityIndicator, Alert } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { StyleSheet, Text, Alert, RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -13,26 +15,34 @@ export default function FavoriteScreen() {
   const router = useRouter();
   const [favoriteDishes, setFavoriteDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { token } = useAuthStore();
+  const { updateFavoriteStatus } = useFavoriteStore(); // Add favorite store
 
   // Fetch favorite dishes from backend
-  const fetchFavoriteDishes = async () => {
+  const fetchFavoriteDishes = useCallback(async (showRefresh = false) => {
     try {
-      setLoading(true);
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       
-      const token = useAuthStore.getState().token;
-      if (!token) {
+      const currentToken = useAuthStore.getState().token;
+      if (!currentToken) {
         throw new Error("Authentication required");
       }
 
       const response = await fetch(`${API_URL}/users/me/favorites`, {
-  method: "GET",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-});
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentToken}`,
+        },
+      });
+
       if (!response.ok) {
         throw new Error(`Failed to fetch favorites: ${response.status}`);
       }
@@ -41,15 +51,16 @@ export default function FavoriteScreen() {
       
       // Transform backend data to match frontend Dish type
       const transformedDishes: Dish[] = data.map((dish: any) => ({
-    id: dish.id || "",
+        id: dish.id || 0,
         label: dish.name || "",
-        image: dish.image_url || dish.image_b64 ? 
-          `data:${dish.image_mime || 'image/jpeg'};base64,${dish.image_b64}` : 
-          "https://via.placeholder.com/300",
+        // ✅ FIX: Proper image handling like in HomeScreen
+        image: dish.image_url || "https://via.placeholder.com/300",
         time: `${dish.cooking_time || 0} phút`,
-        level: dish.difficulty_level || "Dễ",
+        level: dish.difficulty_level || dish.difficulty || "easy",
         star: dish.average_rating || 0,
         isFavorite: true, // Always true for favorite screen
+        ingredients: dish.ingredients || [],
+        steps: dish.instructions || dish.steps || [],
       }));
 
       setFavoriteDishes(transformedDishes);
@@ -58,56 +69,59 @@ export default function FavoriteScreen() {
       setError(err.message || "Không thể tải danh sách món ăn yêu thích");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
 
   // Toggle favorite status
-  const toggleFavorite = async (dishId: number) => {
+  const toggleFavorite = useCallback(async (dishId: number) => {
     try {
-      const token = useAuthStore.getState().token;
-      if (!token) {
+      const currentToken = useAuthStore.getState().token;
+      if (!currentToken) {
         Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
         return;
       }
 
-      // Call API to toggle favorite (you might need to implement this endpoint)
+      // Optimistic update - remove from UI immediately
+      setFavoriteDishes(prev => prev.filter(dish => dish.id !== dishId));
+      
+      // ✅ UPDATE: Sync with global store (set to false since we're removing from favorites)
+      updateFavoriteStatus(dishId, false);
+
+      // Call API to toggle favorite
       const response = await fetch(`${API_URL}/dishes/${dishId}/toggle-favorite`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${currentToken}`,
         },
       });
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        fetchFavoriteDishes(false);
+        // Revert global store update
+        updateFavoriteStatus(dishId, true);
         throw new Error("Failed to toggle favorite");
       }
-
-      // Remove from local state since we're unfavoriting
-      setFavoriteDishes(prev => prev.filter(dish => dish.id !== dishId));
       
     } catch (err: any) {
       console.error("Error toggling favorite:", err);
       Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
     }
-  };
-
-  // Load data on component mount
-  useEffect(() => {
-    fetchFavoriteDishes();
-  }, []);
+  }, [fetchFavoriteDishes, updateFavoriteStatus]);
 
   // Handle dish press - log view history like in search-results
-  const handleDishPress = async (dish: Dish) => {
+  const handleDishPress = useCallback(async (dish: Dish) => {
     try {
       // Log view history
-      const token = useAuthStore.getState().token;
-      if (token) {
+      const currentToken = useAuthStore.getState().token;
+      if (currentToken) {
         await fetch(`${API_URL}/users/activity/viewed/${dish.id}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${currentToken}`,
           },
         });
       }
@@ -117,10 +131,34 @@ export default function FavoriteScreen() {
     
     // Navigate to detail
     router.push(`/detail?id=${dish.id}`);
-  };
+  }, [router]);
 
-  // Loading state
-  if (loading) {
+  // Pull to refresh handler
+  const onRefresh = useCallback(() => {
+    fetchFavoriteDishes(true);
+  }, [fetchFavoriteDishes]);
+
+  // Load data on component mount
+  useEffect(() => {
+    if (token) {
+      fetchFavoriteDishes(false);
+    } else {
+      setLoading(false);
+      setFavoriteDishes([]);
+    }
+  }, [fetchFavoriteDishes, token]);
+
+  // Refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        fetchFavoriteDishes(false);
+      }
+    }, [fetchFavoriteDishes, token])
+  );
+
+  // Error state with retry
+  if (error && !loading && !refreshing) {
     return (
       <ParallaxScrollView
         headerHeight={100}
@@ -132,18 +170,25 @@ export default function FavoriteScreen() {
             style={styles.reactLogo}
           />
         }
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         <Text style={styles.title}>Món ăn đã Thích</Text>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#f5b402" />
-          <Text style={styles.loadingText}>Đang tải món ăn yêu thích...</Text>
-        </View>
+        <ProductList
+          dishes={[]}
+          onPress={handleDishPress}
+          onPressFavorite={toggleFavorite}
+          loading={false}
+          emptyMessage="Đã xảy ra lỗi"
+          emptySubMessage={`${error}\n\nKéo xuống để thử lại`}
+        />
       </ParallaxScrollView>
     );
   }
 
-  // Error state
-  if (error) {
+  // Not logged in state
+  if (!token) {
     return (
       <ParallaxScrollView
         headerHeight={100}
@@ -157,15 +202,14 @@ export default function FavoriteScreen() {
         }
       >
         <Text style={styles.title}>Món ăn đã Thích</Text>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Text 
-            style={styles.retryText}
-            onPress={fetchFavoriteDishes}
-          >
-            Thử lại
-          </Text>
-        </View>
+        <ProductList
+          dishes={[]}
+          onPress={handleDishPress}
+          onPressFavorite={toggleFavorite}
+          loading={false}
+          emptyMessage="Vui lòng đăng nhập"
+          emptySubMessage="Để xem danh sách món ăn yêu thích"
+        />
       </ParallaxScrollView>
     );
   }
@@ -181,31 +225,20 @@ export default function FavoriteScreen() {
           style={styles.reactLogo}
         />
       }
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     >
       <Text style={styles.title}>Món ăn đã Thích</Text>
-
-      {favoriteDishes.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            Bạn chưa có món ăn yêu thích nào
-          </Text>
-          <Text style={styles.emptySubtext}>
-            Hãy khám phá và thêm những món ăn bạn yêu thích!
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.dishList}>
-          {favoriteDishes.map((dish) => (
-            <ProductCard
-              key={dish.id}
-              dish={dish}
-              itemsPerRow={2}
-              onPress={() => handleDishPress(dish)}
-              onPressFavorite={toggleFavorite}
-            />
-          ))}
-        </View>
-      )}
+      
+      <ProductList
+        dishes={favoriteDishes}
+        onPress={handleDishPress}
+        onPressFavorite={toggleFavorite}
+        loading={loading}
+        emptyMessage="Bạn chưa có món ăn yêu thích nào"
+        emptySubMessage="Hãy khám phá và thêm những món ăn bạn yêu thích!"
+      />
     </ParallaxScrollView>
   );
 }
@@ -221,60 +254,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 16,
     color: "#dd3300",
-  },
-  dishList: {
-    width: "100%",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 5,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 50,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#666",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 50,
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#ff4444",
-    textAlign: "center",
-    marginBottom: 10,
-  },
-  retryText: {
-    fontSize: 16,
-    color: "#f5b402",
-    fontWeight: "bold",
-    textDecorationLine: "underline",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 50,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: "#999",
     textAlign: "center",
   },
 });
