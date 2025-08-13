@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/AntDesign";
 import {
@@ -19,8 +20,11 @@ import {
   useNavigation,
 } from "expo-router";
 import { Dish } from "@/types";
+import Toast from 'react-native-toast-message';
 import { mockDishes1 } from "@/constants/mock-data";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuthStore } from "@/store/authStore";               // 🔹 thêm
+const API_URL = process.env.EXPO_PUBLIC_API_URL;               // 🔹 thêm
 
 export default function FeedBackScreen() {
   const { id } = useLocalSearchParams();
@@ -38,24 +42,74 @@ export default function FeedBackScreen() {
   const navigation = useNavigation();
   const [starValue, setStarValue] = useState<number | null>(null);
 
+  const token = useAuthStore.getState().token;                 // 🔹 thêm
+  const dishId = String(id ?? "");                             // 🔹 thêm
+
   const onPressStar = (index: number) => {
     setStarValue(index);
   };
 
-  const onSubmit = () => {
-    const body = {
-      text,
-      rating: starValue,
-    };
-    console.log("body: ", body);
-    // TODO: call API to save rating & comment
+  const onSubmit = async () => {
+  if (!API_URL) {
+    Alert.alert("Lỗi hệ thống", "Thiếu cấu hình máy chủ. Vui lòng thử lại sau.");
+    return;
+  }
+  if (!token) {
+    Alert.alert("Thông báo", "Bạn cần đăng nhập để gửi đánh giá.");
+    return;
+  }
+  if (!dishId) {
+    Alert.alert("Lỗi", "Không tìm thấy ID món ăn.");
+    return;
+  }
+  if (starValue === null) {
+    Alert.alert("Thiếu đánh giá", "Vui lòng chọn số sao trước khi gửi.");
+    return;
+  }
 
-    if (typeof navigation !== "undefined" && navigation?.goBack) {
-      navigation.goBack();
-    } else if (typeof window !== "undefined" && window.history) {
-      window.history.back();
+  try {
+    const body = {
+      dish_id: dishId,
+      rating: starValue + 1, // ⭐ 0–4 → 1–5
+      content: text ?? "",
+    };
+
+    const res = await fetch(`${API_URL}/comments/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      let errorMessage = "Có lỗi xảy ra khi gửi đánh giá.";
+      try {
+        const errText = await res.text();
+        if (errText) errorMessage = errText;
+      } catch {}
+      Alert.alert("Gửi thất bại", errorMessage);
+      return;
     }
-  };
+
+    Alert.alert("Thành công", "Cảm ơn bạn đã gửi đánh giá của mình!", [
+      {
+        text: "OK",
+        onPress: () => {
+          if (typeof navigation !== "undefined" && (navigation as any)?.goBack) {
+            (navigation as any).goBack();
+          } else if (typeof window !== "undefined" && window.history) {
+            window.history.back();
+          }
+        },
+      },
+    ]);
+  } catch {
+    Alert.alert("Gửi thất bại", "Vui lòng kiểm tra kết nối mạng và thử lại.");
+  }
+};
+
 
   return (
     <SafeAreaView
@@ -126,8 +180,8 @@ export default function FeedBackScreen() {
                 color="#e67f5e"
                 title="Huỷ"
                 onPress={() => {
-                  if (typeof navigation !== "undefined" && navigation?.goBack) {
-                    navigation.goBack();
+                  if (typeof navigation !== "undefined" && (navigation as any)?.goBack) {
+                    (navigation as any).goBack();
                   } else if (typeof window !== "undefined" && window.history) {
                     window.history.back();
                   }
@@ -143,6 +197,7 @@ export default function FeedBackScreen() {
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   safeViewContainer: {
