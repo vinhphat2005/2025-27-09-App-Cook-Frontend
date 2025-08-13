@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/AntDesign";
 import {
@@ -21,6 +22,8 @@ import {
 import { Dish } from "@/types";
 import { mockDishes1 } from "@/constants/mock-data";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuthStore } from "@/store/authStore";               // 🔹 thêm
+const API_URL = process.env.EXPO_PUBLIC_API_URL;               // 🔹 thêm
 
 export default function FeedBackScreen() {
   const { id } = useLocalSearchParams();
@@ -38,22 +41,66 @@ export default function FeedBackScreen() {
   const navigation = useNavigation();
   const [starValue, setStarValue] = useState<number | null>(null);
 
+  const token = useAuthStore.getState().token;                 // 🔹 thêm
+  const dishId = String(id ?? "");                             // 🔹 thêm
+
   const onPressStar = (index: number) => {
     setStarValue(index);
   };
 
-  const onSubmit = () => {
-    const body = {
-      text,
-      rating: starValue,
-    };
-    console.log("body: ", body);
-    // TODO: call API to save rating & comment
+  const onSubmit = async () => {                               // 🔹 sửa thành async
+    try {
+      if (!API_URL) {
+        Alert.alert("Lỗi", "Thiếu EXPO_PUBLIC_API_URL");
+        return;
+      }
+      if (!token) {
+        Alert.alert("Lỗi", "Bạn cần đăng nhập để gửi đánh giá.");
+        return;
+      }
+      if (!dishId) {
+        Alert.alert("Lỗi", "Thiếu dish_id.");
+        return;
+      }
+      if (starValue === null) {
+        Alert.alert("Thiếu đánh giá", "Vui lòng chọn số sao.");
+        return;
+      }
 
-    if (typeof navigation !== "undefined" && navigation?.goBack) {
-      navigation.goBack();
-    } else if (typeof window !== "undefined" && window.history) {
-      window.history.back();
+      const body = {
+        dish_id: dishId,                   // backend lấy từ params ?id=... bạn đang truyền trên router
+        // recipe_id: "",                  // nếu có recipe_id thì thêm vào
+        rating: starValue + 1,             // ⭐ chuyển 0–4 -> 1–5
+        content: text ?? "",
+      };
+
+      const res = await fetch(`${API_URL}/comments/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // bắt buộc vì route bảo vệ
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        console.log("Comment POST error:", res.status, t); // <— log
+        throw new Error(`${res.status} ${res.statusText} ${t}`);
+      }
+
+      // tuỳ ý: đọc response nếu cần
+      // const data = await res.json();
+
+      Alert.alert("Thành công", "Đã gửi đánh giá của bạn!");
+      if (typeof navigation !== "undefined" && (navigation as any)?.goBack) {
+        (navigation as any).goBack();
+      } else if (typeof window !== "undefined" && window.history) {
+        window.history.back();
+      }
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert("Gửi thất bại", err?.message || "Có lỗi xảy ra.");
     }
   };
 
@@ -126,8 +173,8 @@ export default function FeedBackScreen() {
                 color="#e67f5e"
                 title="Huỷ"
                 onPress={() => {
-                  if (typeof navigation !== "undefined" && navigation?.goBack) {
-                    navigation.goBack();
+                  if (typeof navigation !== "undefined" && (navigation as any)?.goBack) {
+                    (navigation as any).goBack();
                   } else if (typeof window !== "undefined" && window.history) {
                     window.history.back();
                   }
@@ -143,6 +190,7 @@ export default function FeedBackScreen() {
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   safeViewContainer: {

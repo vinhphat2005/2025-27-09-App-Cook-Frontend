@@ -12,21 +12,41 @@ import { useEffect, useState } from "react";
 import type { Dish } from "@/types";
 import { fetchTodaySuggestions } from "@/lib/api";
 
+// --- SIMPLE IN-FILE CACHE (TTL) ---
+let _cachedMatches: Dish[] = [];
+let _cachedAt = 0;
+const MATCHES_TTL_MS = 5 * 60 * 1000; // 5 phút
 
 
 export default function HomeScreen() {
   const router = useRouter();
   const [matches, setMatches] = useState<Dish[]>([]); // ADD: dữ liệu "Gợi ý món phù hợp"
   useEffect(() => {
+  const now = Date.now();
+
+  // 1) Dùng cache nếu còn hạn
+  if (_cachedMatches.length && now - _cachedAt < MATCHES_TTL_MS) {
+    setMatches(_cachedMatches);
+    return;
+  }
+
+  // 2) Không có/het hạn -> fetch rồi ghi cache
+  let abort = false;
   (async () => {
     try {
       const data = await fetchTodaySuggestions({ userId: "1" });
-      setMatches(data); // đây mới là chỗ "lưu" vào matches
+      if (abort) return;
+      setMatches(data);
+      _cachedMatches = data;     // lưu cache
+      _cachedAt = Date.now();    // timestamp
     } catch (err) {
-      console.error(err);
+      if (!abort) console.error(err);
     }
   })();
+
+  return () => { abort = true; };
 }, []);
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#f5b402", dark: "#f5b402" }}
