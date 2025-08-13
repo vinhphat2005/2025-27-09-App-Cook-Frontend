@@ -3,15 +3,14 @@ import { StyleSheet, Text, View, Alert } from "react-native";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
 import { SearchBox } from "@/components/Search/SearchBox";
-import { mockDishes1 } from "@/constants/mock-data";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
-import { useFavoriteStore } from "@/store/favoriteStore"; // Add favorite store
+import { useFavoriteStore } from "@/store/favoriteStore";
 import { useEffect, useState, useCallback } from "react";
 import type { Dish } from "@/types";
 import { fetchTodaySuggestions } from "@/lib/api";
 import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
-import { useFocusEffect } from "@react-navigation/native"; // Add this import
+import { useFocusEffect } from "@react-navigation/native";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -21,7 +20,7 @@ export default function HomeScreen() {
   const [todayDishes, setTodayDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
   const { token } = useAuthStore();
-  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore(); // Add favorite store
+  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
 
   // ✅ NEW: Sync dishes with global favorite updates
   const syncWithFavoriteUpdates = useCallback((dishes: Dish[]) => {
@@ -33,36 +32,31 @@ export default function HomeScreen() {
     });
   }, [getFavoriteStatus]);
 
-  // Fetch today suggestions
+  // Fetch suggestions - sử dụng cùng 1 API cho cả 2 section
   const fetchSuggestions = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Fetch gợi ý món phù hợp
+
+      // Fetch gợi ý món phù hợp (API gốc)
       const matchData = await fetchTodaySuggestions({ userId: "1" });
-      
-      // Transform mockDishes1 to include default isFavorite status
-      const transformedTodayDishes = mockDishes1.map(dish => ({
-        ...dish,
-        isFavorite: false, // Default false, sẽ được cập nhật từ API
-      }));
-      
-      // Update with correct favorite status if user is logged in
+
+      // ✅ Sử dụng cùng data cho "gợi ý món hôm nay" 
+      // Có thể shuffle hoặc slice để tạo sự khác biệt
+      const todayDishesData = [...matchData].slice(0, 6); // Lấy 6 món đầu tiên
+      // Hoặc shuffle để tạo sự khác biệt:
+      // const todayDishesData = [...matchData].sort(() => Math.random() - 0.5).slice(0, 6);
+
       if (token) {
         const [updatedMatches, updatedTodayDishes] = await Promise.all([
           updateDishesWithFavoriteStatus(matchData),
-          updateDishesWithFavoriteStatus(transformedTodayDishes),
+          updateDishesWithFavoriteStatus(todayDishesData),
         ]);
-        
-        // ✅ SYNC with global favorite updates
         setMatches(syncWithFavoriteUpdates(updatedMatches));
         setTodayDishes(syncWithFavoriteUpdates(updatedTodayDishes));
       } else {
-        // User not logged in, use default status
         setMatches(matchData.map(dish => ({ ...dish, isFavorite: false })));
-        setTodayDishes(transformedTodayDishes);
+        setTodayDishes(todayDishesData.map(dish => ({ ...dish, isFavorite: false })));
       }
-      
     } catch (err) {
       console.error("Error fetching suggestions:", err);
     } finally {
@@ -213,7 +207,7 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Gợi ý món ăn hôm nay */}
+      {/* Gợi ý món ăn hôm nay - sử dụng cùng data nhưng có thể hiển thị khác */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Gợi ý món ăn hôm nay</Text>
         <ProductList
@@ -221,9 +215,9 @@ export default function HomeScreen() {
           onPress={handleDishPress}
           onPressFavorite={toggleFavorite}
           itemsPerRow={2}
-          loading={false}
+          loading={loading} // Cùng loading state
           emptyMessage="Không có gợi ý món ăn hôm nay"
-          emptySubMessage="Hãy quay lại sau để xem gợi ý mới!"
+          emptySubMessage="Hãy thử nhập nguyên liệu để tìm món ăn!"
         />
       </View>
     </ParallaxScrollView>
