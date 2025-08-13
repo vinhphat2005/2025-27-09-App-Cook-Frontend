@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getDifficultyDisplay, mapDifficultyToEnglish } from '@/types/dish';
 
 export default function AddDish() {
   const { user, token, requireAuth } = useAuth();
@@ -33,7 +34,7 @@ export default function AddDish() {
   
   // Recipe additional fields
   const [recipeDescription, setRecipeDescription] = useState('');
-  const [difficulty, setDifficulty] = useState('Dễ');
+  const [difficulty, setDifficulty] = useState('Dễ'); // Vietnamese display
 
   React.useEffect(() => {
     requireAuth();
@@ -152,21 +153,29 @@ export default function AddDish() {
       const filteredIngredients = ingredients.filter(ing => ing.trim());
       const filteredInstructions = instructions.filter(inst => inst.trim());
 
+      // ✅ FIXED: Use helper function to convert Vietnamese difficulty to English
+      const englishDifficulty = mapDifficultyToEnglish(difficulty);
+      
+      console.log('🔍 Difficulty mapping:', {
+        vietnamese: difficulty,
+        english: englishDifficulty
+      });
+
       const dishData = {
         // Basic dish info
         name: dishName.trim(),
         ingredients: filteredIngredients,
         cooking_time: parseInt(cookingTime),
-        
+
         // Image data - backend sẽ upload lên Cloudinary
         image_b64: imageBase64,
         image_mime: imageMime,
-        
+
         // Recipe info
         recipe_name: `Cách làm ${dishName.trim()}`,
         recipe_description: recipeDescription.trim() || `Hướng dẫn làm ${dishName.trim()}`,
         recipe_ingredients: filteredIngredients, // Same as dish ingredients
-        difficulty: difficulty,
+        difficulty: englishDifficulty, // ✅ FIXED: Now properly converted to English
         instructions: filteredInstructions,
       };
 
@@ -352,7 +361,10 @@ export default function AddDish() {
                     styles.difficultyButton,
                     difficulty === level && styles.difficultyButtonActive
                   ]}
-                  onPress={() => setDifficulty(level)}
+                  onPress={() => {
+                    console.log('🔍 Difficulty selected:', level);
+                    setDifficulty(level);
+                  }}
                 >
                   <Text style={[
                     styles.difficultyText,
@@ -363,6 +375,7 @@ export default function AddDish() {
                 </TouchableOpacity>
               ))}
             </View>
+            <Text style={styles.debugText}>Đã chọn: {difficulty} → {mapDifficultyToEnglish(difficulty)}</Text>
           </View>
 
           {/* Recipe Description */}
@@ -534,6 +547,12 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'right',
     marginTop: 4,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   inputRow: {
     flexDirection: 'row',

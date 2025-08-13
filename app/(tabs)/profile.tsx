@@ -4,6 +4,7 @@ import { ProductList } from "@/components/Profile/ProductList";
 import { State } from "@/components/Profile/State";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
+import { normalizeDishList } from "@/types/dish";
 import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
 import EntypoIcon from "@expo/vector-icons/Entypo";
 import FontAweSomeIcon from "@expo/vector-icons/FontAwesome";
@@ -142,34 +143,8 @@ export default function PersonalScreen() {
 
       console.log("🔄 Processing", rawDishes.length, "raw dishes");
 
-      // ✅ FIXED: Normalize dishes and preserve existing favorite status
-      const normalizedDishes = rawDishes.map((dish: any, index: number) => {
-        console.log(`🔄 Processing dish ${index + 1}:`, {
-          id: dish.id || dish._id,
-          name: dish.name,
-          creator_id: dish.creator_id,
-          isFavorite: dish.isFavorite
-        });
-
-        // Handle image field - could be image_url, image_b64, or image
-        let imageUrl = dish.image_url || dish.image || "";
-        if (dish.image_b64 && dish.image_mime) {
-          imageUrl = `data:${dish.image_mime};base64,${dish.image_b64}`;
-        }
-
-        return {
-          id: dish.id || dish._id,
-          image: imageUrl,
-          time: dish.cooking_time ? `${dish.cooking_time} phút` : "0 phút",
-          label: dish.name || dish.title || dish.label || "",
-          ingredients: dish.ingredients || [],
-          steps: dish.steps || dish.instructions || [],
-          star: dish.average_rating || dish.rating || 0,
-          // ✅ FIXED: Keep existing favorite status instead of forcing false
-          isFavorite: dish.isFavorite || false,
-          level: "easy" as const,
-        };
-      });
+  // ✅ Use normalizeDishList for consistent normalization and correct level mapping
+  const normalizedDishes = normalizeDishList(rawDishes);
       
       // ✅ CRITICAL: Update favorite status from API (like HomeScreen does)
       let dishesWithUpdatedFavorites = normalizedDishes;

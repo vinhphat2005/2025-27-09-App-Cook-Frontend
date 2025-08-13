@@ -1,8 +1,9 @@
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
 import { useAuthStore } from "@/store/authStore";
-import { useFavoriteStore } from "@/store/favoriteStore"; // Import favorite store
+import { useFavoriteStore } from "@/store/favoriteStore";
 import { Dish } from "@/types";
+import { normalizeDishList } from "@/types/dish";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
@@ -18,9 +19,9 @@ export default function FavoriteScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuthStore();
-  const { updateFavoriteStatus } = useFavoriteStore(); // Add favorite store
+  const { updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
 
-  // Fetch favorite dishes from backend
+  // ✅ Fetch favorite dishes - simplified version
   const fetchFavoriteDishes = useCallback(async (showRefresh = false) => {
     try {
       if (showRefresh) {
@@ -35,6 +36,8 @@ export default function FavoriteScreen() {
         throw new Error("Authentication required");
       }
 
+      console.log("🔄 Fetching favorite dishes...");
+
       const response = await fetch(`${API_URL}/users/me/favorites`, {
         method: "GET",
         headers: {
@@ -48,32 +51,40 @@ export default function FavoriteScreen() {
       }
 
       const data = await response.json();
+      console.log("📋 Raw favorite dishes data:", data.length);
       
-      // Transform backend data to match frontend Dish type
-      const transformedDishes: Dish[] = data.map((dish: any) => ({
-        id: dish.id || 0,
-        label: dish.name || "",
-        // ✅ FIX: Proper image handling like in HomeScreen
-        image: dish.image_url || "https://via.placeholder.com/300",
-        time: `${dish.cooking_time || 0} phút`,
-        level: dish.difficulty_level || dish.difficulty || "easy",
-        star: dish.average_rating || 0,
-        isFavorite: true, // Always true for favorite screen
-        ingredients: dish.ingredients || [],
-        steps: dish.instructions || dish.steps || [],
-      }));
+      // ✅ Use normalizeDishList for consistent data structure
+      const normalizedDishes = normalizeDishList(data);
+      
+      // Set all dishes as favorite and sync with global store
+      const processedDishes = normalizedDishes.map(dish => {
+        const globalStatus = getFavoriteStatus(dish.id);
+        return {
+          ...dish,
+          isFavorite: globalStatus !== undefined ? globalStatus : true
+        };
+      });
+      
+      console.log("✅ Processed favorite dishes:", processedDishes.length);
+      console.log("🔍 Sample dish:", {
+        id: processedDishes[0]?.id,
+        name: processedDishes[0]?.label,
+        level: processedDishes[0]?.level,
+        difficulty: processedDishes[0]?.level, // This should now be correct
+        isFavorite: processedDishes[0]?.isFavorite
+      });
 
-      setFavoriteDishes(transformedDishes);
+      setFavoriteDishes(processedDishes);
     } catch (err: any) {
-      console.error("Error fetching favorite dishes:", err);
+      console.error("❌ Error fetching favorite dishes:", err);
       setError(err.message || "Không thể tải danh sách món ăn yêu thích");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [getFavoriteStatus]); // ✅ Only depend on getFavoriteStatus
 
-  // Toggle favorite status
+  // ✅ Toggle favorite - simplified
   const toggleFavorite = useCallback(async (dishId: number) => {
     try {
       const currentToken = useAuthStore.getState().token;
@@ -82,13 +93,22 @@ export default function FavoriteScreen() {
         return;
       }
 
-      // Optimistic update - remove from UI immediately
-      setFavoriteDishes(prev => prev.filter(dish => dish.id !== dishId));
+      // Find current dish
+      const dishIndex = favoriteDishes.findIndex(d => d.id === dishId);
+      if (dishIndex === -1) return;
+
+      const currentDish = favoriteDishes[dishIndex];
+
+      // Optimistic update - remove from favorites list
+      const updatedDishes = favoriteDishes.filter(dish => dish.id !== dishId);
+      setFavoriteDishes(updatedDishes);
       
-      // ✅ UPDATE: Sync with global store (set to false since we're removing from favorites)
+      // Update global store
       updateFavoriteStatus(dishId, false);
 
-      // Call API to toggle favorite
+      console.log(`❤️ Removing dish ${dishId} from favorites`);
+
+      // API call
       const response = await fetch(`${API_URL}/dishes/${dishId}/toggle-favorite`, {
         method: "POST",
         headers: {
@@ -98,23 +118,25 @@ export default function FavoriteScreen() {
       });
 
       if (!response.ok) {
-        // Revert optimistic update on error
-        fetchFavoriteDishes(false);
-        // Revert global store update
+        console.error(`❌ API call failed: ${response.status}`);
+        
+        // Revert on error
+        setFavoriteDishes(prev => [...prev, currentDish].sort((a, b) => a.id - b.id));
         updateFavoriteStatus(dishId, true);
         throw new Error("Failed to toggle favorite");
       }
+
+      console.log(`✅ Successfully removed dish ${dishId} from favorites`);
       
     } catch (err: any) {
-      console.error("Error toggling favorite:", err);
+      console.error("❌ Error toggling favorite:", err);
       Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
     }
-  }, [fetchFavoriteDishes, updateFavoriteStatus]);
+  }, [favoriteDishes, updateFavoriteStatus]);
 
-  // Handle dish press - log view history like in search-results
+  // ✅ Handle dish press
   const handleDishPress = useCallback(async (dish: Dish) => {
     try {
-      // Log view history
       const currentToken = useAuthStore.getState().token;
       if (currentToken) {
         await fetch(`${API_URL}/users/activity/viewed/${dish.id}`, {
@@ -129,16 +151,15 @@ export default function FavoriteScreen() {
       console.error("Error logging view history:", err);
     }
     
-    // Navigate to detail
     router.push(`/detail?id=${dish.id}`);
   }, [router]);
 
-  // Pull to refresh handler
+  // ✅ Pull to refresh
   const onRefresh = useCallback(() => {
     fetchFavoriteDishes(true);
   }, [fetchFavoriteDishes]);
 
-  // Load data on component mount
+  // ✅ Initial load - only when token changes
   useEffect(() => {
     if (token) {
       fetchFavoriteDishes(false);
@@ -146,18 +167,42 @@ export default function FavoriteScreen() {
       setLoading(false);
       setFavoriteDishes([]);
     }
-  }, [fetchFavoriteDishes, token]);
+  }, [token]); // ✅ Remove fetchFavoriteDishes from dependencies
 
-  // Refresh when screen comes into focus
+  // ✅ Simplified focus effect - only sync with global store, don't refetch
   useFocusEffect(
     useCallback(() => {
-      if (token) {
-        fetchFavoriteDishes(false);
+      if (token && favoriteDishes.length > 0) {
+        console.log("🔄 FavoriteScreen came into focus - syncing favorite status");
+        
+        // Only sync favorite status from global store, don't refetch
+        setFavoriteDishes(prev => 
+          prev.map(dish => {
+            const globalStatus = getFavoriteStatus(dish.id);
+            return globalStatus !== undefined 
+              ? { ...dish, isFavorite: globalStatus }
+              : dish;
+          }).filter(dish => dish.isFavorite) // Remove dishes that are no longer favorites
+        );
       }
-    }, [fetchFavoriteDishes, token])
+    }, [token, getFavoriteStatus]) // ✅ Remove loading/refreshing dependencies
   );
 
-  // Error state with retry
+  // ✅ Debug log - only when dishes change
+  useEffect(() => {
+    if (favoriteDishes.length > 0) {
+      console.log("🔍 Current favorite dishes:", 
+        favoriteDishes.slice(0, 3).map(d => ({ 
+          id: d.id, 
+          name: d.label, 
+          level: d.level,
+          isFavorite: d.isFavorite 
+        }))
+      );
+    }
+  }, [favoriteDishes]);
+
+  // Error state
   if (error && !loading && !refreshing) {
     return (
       <ParallaxScrollView
