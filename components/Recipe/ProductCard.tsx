@@ -1,4 +1,4 @@
-import { Dish } from "@/types";
+import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View, ActivityIndicator } from "react-native";

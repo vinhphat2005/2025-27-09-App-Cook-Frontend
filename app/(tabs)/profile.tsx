@@ -20,7 +20,7 @@ import {
   Alert,
   RefreshControl,
 } from "react-native";
-import type { Dish } from "@/types";
+import type { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { useFocusEffect } from "@react-navigation/native";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;

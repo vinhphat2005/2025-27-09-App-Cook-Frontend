@@ -1,4 +1,5 @@
-import { Dish, Notify } from "@/types";
+import { Dish } from "@/types/dish"; // ✅ Use dish.ts
+import { Notify } from "@/types"; // Keep Notify from index.ts
 
 export const mockDishes1: Dish[] = [
   {

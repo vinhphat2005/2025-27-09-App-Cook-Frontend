@@ -2,7 +2,7 @@ import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
-import { Dish } from "@/types";
+import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { normalizeDishList } from "@/types/dish";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";

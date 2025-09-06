@@ -5,8 +5,8 @@ export type Dish = {
   image: string;
   time: string;            // "15 phút"
   label: string;           // tên món
-  ingredients: string[];
-  steps: string[];
+  ingredients?: string[];  // ✅ Make optional to match index.ts
+  steps?: string[];        // ✅ Make optional to match index.ts
   star?: number;
   isFavorite?: boolean;
   level?: "easy" | "medium" | "hard";
@@ -17,8 +17,8 @@ export type DishCard = {
   image: string;
   time: string;
   label: string;
-  ingredients: string[];
-  steps: string[];
+  ingredients?: string[];  // ✅ Make optional for consistency
+  steps?: string[];        // ✅ Make optional for consistency
   star: number;
   isFavorite: boolean;
   level: "easy" | "medium" | "hard";
@@ -199,7 +199,7 @@ export function normalizeDishList(rawList: any[]): Dish[] {
     });
     
     // ✅ FIXED: Trust database difficulty, don't derive from cooking time unless no difficulty
-    const finalLevel = normalizeLevel(difficultyFromDB || levelFromDB, cookingTime);
+    const finalLevel = normalizeLevel(difficultyFromDB || levelFromDB);
     
     console.log(`✅ Dish "${item.name}" - difficulty: "${difficultyFromDB}" -> final level: "${finalLevel}"`);
 

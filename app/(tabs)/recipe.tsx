@@ -8,6 +8,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
 import { normalizeDishList } from "@/types/dish";
+import type { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 
 import { 
   Pressable, 
@@ -16,9 +17,9 @@ import {
   TextInput, 
   View, 
   ActivityIndicator,
-  Alert 
+  Alert,
+  RefreshControl
 } from "react-native";
-import type { Dish } from "@/types";
 import { useFocusEffect } from "@react-navigation/native";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -29,6 +30,7 @@ export default function RecipeScreen() {
   const [allDishes, setAllDishes] = useState<Dish[]>([]);
   const [filteredDishes, setFilteredDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { token } = useAuthStore();
   const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
 
@@ -42,49 +44,64 @@ export default function RecipeScreen() {
     });
   }, [getFavoriteStatus]);
 
-  // ✅ Fetch high-rated dishes (rating >= 4.0)
-  // ✅ Sửa fetchHighRatedDishes function
-const fetchHighRatedDishes = useCallback(async () => {
+ // ✅ Simplified fetchHighRatedDishes function
+const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
   try {
-    setLoading(true);
+    if (showRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     
-    // Fetch tất cả dishes từ API
-    const response = await fetch(`${API_URL}/dishes?limit=100`);
+    // ✅ FIXED: Fetch high-rated dishes from dedicated endpoint
+    console.log("🔍 Fetching from URL:", `${API_URL}/dishes/high-rated?min_rating=4.0&limit=100`);
+    const response = await fetch(`${API_URL}/dishes/high-rated?min_rating=4.0&limit=100`);
+    
+    let rawDishes;
+    
     if (!response.ok) {
-      throw new Error("Không thể lấy dữ liệu món ăn");
-    }
-    
-    const rawDishes = await response.json();
-    console.log("Raw API response sample:", rawDishes[0]); // ← Debug log
-    
-    // ✅ FIXED: Normalize API data first
-    const normalizedDishes = normalizeDishList(rawDishes);
-    console.log("Normalized dish sample:", normalizedDishes[0]); // ← Debug log
-    
-    // Filter dishes có rating >= 4.0
-    let highRatedDishes = normalizedDishes.filter((dish: Dish) => 
-      dish.star >= 4.0
-    );
-
-    // Fallback: nếu không có món nào >= 4.0, lấy tất cả và sort theo rating
-    if (highRatedDishes.length === 0) {
-      console.log("No dishes with rating >= 4.0, showing all dishes sorted by rating");
-      highRatedDishes = normalizedDishes.sort((a: Dish, b: Dish) => 
-        b.star - a.star
-      );
+      console.error("❌ High-rated endpoint failed:", response.status, response.statusText);
+      console.log("🔄 Falling back to regular dishes endpoint...");
+      
+      // ✅ Fallback: Use regular dishes endpoint and filter client-side
+      const fallbackResponse = await fetch(`${API_URL}/dishes?limit=100`);
+      if (!fallbackResponse.ok) {
+        throw new Error("Không thể lấy dữ liệu món ăn");
+      }
+      
+      const allDishes = await fallbackResponse.json();
+      console.log("📋 Fallback: All dishes count:", allDishes.length);
+      
+      // Client-side filtering for dishes with rating >= 4.0
+      const normalizedAll = normalizeDishList(allDishes);
+      rawDishes = normalizedAll.filter(dish => dish.star && dish.star >= 4.0);
+      console.log("⭐ Client-filtered high-rated dishes:", rawDishes.length);
+      
     } else {
-      // Sort theo rating giảm dần
-      highRatedDishes.sort((a: Dish, b: Dish) => 
-        b.star - a.star
-      );
+      rawDishes = await response.json();
+      console.log("📋 Raw API response:", rawDishes);
+      console.log("📊 Raw dishes count:", rawDishes.length);
+      console.log("🔍 First dish sample:", rawDishes[0]);
+      
+      // Normalize backend response
+      rawDishes = normalizeDishList(rawDishes);
     }
+    
+    console.log("✅ Final dishes count:", rawDishes.length);
+    console.log("🔍 Final dish sample:", rawDishes[0]);
+    console.log("⭐ Ratings check:", rawDishes.slice(0, 5).map(d => ({ 
+      id: d.id, 
+      label: d.label, 
+      star: d.star 
+    })));
 
+    // ✅ No need to filter anymore - backend already filtered or client-side filtered above
     // Update favorite status if user is logged in
-    let dishesWithFavorites = highRatedDishes;
+    let dishesWithFavorites = rawDishes;
     if (token) {
-      dishesWithFavorites = await updateDishesWithFavoriteStatus(highRatedDishes);
+      dishesWithFavorites = await updateDishesWithFavoriteStatus(rawDishes);
     } else {
-      dishesWithFavorites = highRatedDishes.map(dish => ({
+      dishesWithFavorites = rawDishes.map(dish => ({
         ...dish,
         isFavorite: false
       }));
@@ -93,18 +110,17 @@ const fetchHighRatedDishes = useCallback(async () => {
     // Sync with global favorite updates
     const syncedDishes = syncWithFavoriteUpdates(dishesWithFavorites);
     
-    console.log("Final dishes:", syncedDishes.length);
-    console.log("Sample final dish:", syncedDishes[0]); // Debug log
-    console.log("Sample image URL:", syncedDishes[0]?.image); // ← Check image field
+    console.log("🎯 Final synced dishes:", syncedDishes.length);
     
     setAllDishes(syncedDishes);
     setFilteredDishes(syncedDishes);
     
   } catch (error) {
-    console.error("Error fetching high-rated dishes:", error);
+    console.error("❌ Error fetching high-rated dishes:", error);
     Alert.alert("Lỗi", "Không thể tải danh sách món ăn nổi bật");
   } finally {
     setLoading(false);
+    setRefreshing(false);
   }
 }, [token, syncWithFavoriteUpdates]);
 
@@ -114,7 +130,7 @@ const fetchHighRatedDishes = useCallback(async () => {
       setFilteredDishes(allDishes);
     } else {
       const filtered = allDishes.filter((dish) =>
-        dish.name.toLowerCase().includes(search.toLowerCase()) ||
+        dish.label.toLowerCase().includes(search.toLowerCase()) ||
         dish.ingredients?.some(ingredient => 
           ingredient.toLowerCase().includes(search.toLowerCase())
         )
@@ -226,6 +242,11 @@ const fetchHighRatedDishes = useCallback(async () => {
     fetchHighRatedDishes();
   }, [fetchHighRatedDishes]);
 
+  // ✅ Pull to refresh handler
+  const onRefresh = useCallback(() => {
+    fetchHighRatedDishes(true);
+  }, [fetchHighRatedDishes]);
+
   return (
     <ParallaxScrollView
       headerHeight={100}
@@ -236,6 +257,9 @@ const fetchHighRatedDishes = useCallback(async () => {
           source={require("@/assets/images/logo.png")}
           style={styles.reactLogo}
         />
+      }
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
       <View style={styles.headerSection}>

@@ -1,4 +1,4 @@
-import { Dish } from "@/types";
+import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { StyleSheet, View, Text, ActivityIndicator } from "react-native";
 import { ProductCard } from "../Recipe/ProductCard";
 

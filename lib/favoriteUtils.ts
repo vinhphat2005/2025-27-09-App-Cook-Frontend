@@ -1,6 +1,6 @@
 // lib/favoriteUtils.ts
 import { useAuthStore } from "@/store/authStore";
-import { Dish } from "@/types";
+import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 

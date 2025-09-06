@@ -1,5 +1,5 @@
 import { Image } from "react-native";
-import { StyleSheet, Text, View, Alert } from "react-native";
+import { StyleSheet, Text, View, Alert, RefreshControl } from "react-native";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
 import { SearchBox } from "@/components/Search/SearchBox";
@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
 import { useEffect, useState, useCallback } from "react";
-import type { Dish } from "@/types";
+import type { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { fetchTodaySuggestions } from "@/lib/api";
 import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
 import { useFocusEffect } from "@react-navigation/native";
@@ -24,6 +24,7 @@ export default function HomeScreen() {
   const [matches, setMatches] = useState<Dish[]>([]);
   const [todayDishes, setTodayDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { token } = useAuthStore(); 
   const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
 
@@ -39,13 +40,17 @@ export default function HomeScreen() {
   );
 
   // ✅ Fetch suggestions with caching + sync favorites
-  const fetchSuggestions = useCallback(async () => {
+  const fetchSuggestions = useCallback(async (showRefresh = false) => {
     try {
-      setLoading(true);
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
       // 1) Use cache for "matches" if still valid -> display faster
       const now = Date.now();
-      if (_cachedMatches.length && now - _cachedAt < MATCHES_TTL_MS) {
+      if (_cachedMatches.length && now - _cachedAt < MATCHES_TTL_MS && !showRefresh) {
         console.log("Using cached matches data");
         setMatches(syncWithFavoriteUpdates(_cachedMatches));
       }
@@ -90,6 +95,7 @@ export default function HomeScreen() {
       console.error("Error fetching suggestions:", err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [token, syncWithFavoriteUpdates]);
 
@@ -190,11 +196,19 @@ export default function HomeScreen() {
     fetchSuggestions();
   }, [fetchSuggestions]);
 
+  // ✅ Pull to refresh handler
+  const onRefresh = useCallback(() => {
+    fetchSuggestions(true);
+  }, [fetchSuggestions]);
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#f5b402", dark: "#f5b402" }}
       includeBottomTab={true}
       headerImage={<Image source={require("@/assets/images/logo.png")} style={styles.reactLogo} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     >
       <Text style={styles.title}>Nhập nguyên liệu bạn có:</Text>
 

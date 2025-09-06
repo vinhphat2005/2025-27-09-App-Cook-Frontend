@@ -1,4 +1,4 @@
-import { Dish } from "@/types";
+import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { Image } from "expo-image";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 

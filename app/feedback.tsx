@@ -19,7 +19,7 @@ import {
   useLocalSearchParams,
   useNavigation,
 } from "expo-router";
-import { Dish } from "@/types";
+import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import Toast from 'react-native-toast-message';
 import { mockDishes1 } from "@/constants/mock-data";
 import { SafeAreaView } from "react-native-safe-area-context";
