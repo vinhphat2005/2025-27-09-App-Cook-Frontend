@@ -54,54 +54,25 @@ const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
     }
     
     // ✅ FIXED: Fetch high-rated dishes from dedicated endpoint
-    console.log("🔍 Fetching from URL:", `${API_URL}/dishes/high-rated?min_rating=4.0&limit=100`);
     const response = await fetch(`${API_URL}/dishes/high-rated?min_rating=4.0&limit=100`);
-    
-    let rawDishes;
-    
     if (!response.ok) {
-      console.error("❌ High-rated endpoint failed:", response.status, response.statusText);
-      console.log("🔄 Falling back to regular dishes endpoint...");
-      
-      // ✅ Fallback: Use regular dishes endpoint and filter client-side
-      const fallbackResponse = await fetch(`${API_URL}/dishes?limit=100`);
-      if (!fallbackResponse.ok) {
-        throw new Error("Không thể lấy dữ liệu món ăn");
-      }
-      
-      const allDishes = await fallbackResponse.json();
-      console.log("📋 Fallback: All dishes count:", allDishes.length);
-      
-      // Client-side filtering for dishes with rating >= 4.0
-      const normalizedAll = normalizeDishList(allDishes);
-      rawDishes = normalizedAll.filter(dish => dish.star && dish.star >= 4.0);
-      console.log("⭐ Client-filtered high-rated dishes:", rawDishes.length);
-      
-    } else {
-      rawDishes = await response.json();
-      console.log("📋 Raw API response:", rawDishes);
-      console.log("📊 Raw dishes count:", rawDishes.length);
-      console.log("🔍 First dish sample:", rawDishes[0]);
-      
-      // Normalize backend response
-      rawDishes = normalizeDishList(rawDishes);
+      throw new Error("Không thể lấy dữ liệu món ăn");
     }
     
-    console.log("✅ Final dishes count:", rawDishes.length);
-    console.log("🔍 Final dish sample:", rawDishes[0]);
-    console.log("⭐ Ratings check:", rawDishes.slice(0, 5).map(d => ({ 
-      id: d.id, 
-      label: d.label, 
-      star: d.star 
-    })));
+    const rawDishes = await response.json();
+    console.log("Raw API response sample:", rawDishes[0]);
+    
+    // ✅ Normalize API data
+    const normalizedDishes = normalizeDishList(rawDishes);
+    console.log("Normalized dish sample:", normalizedDishes[0]);
 
-    // ✅ No need to filter anymore - backend already filtered or client-side filtered above
+    // ✅ No need to filter anymore - backend already filtered
     // Update favorite status if user is logged in
-    let dishesWithFavorites = rawDishes;
+    let dishesWithFavorites = normalizedDishes;
     if (token) {
-      dishesWithFavorites = await updateDishesWithFavoriteStatus(rawDishes);
+      dishesWithFavorites = await updateDishesWithFavoriteStatus(normalizedDishes);
     } else {
-      dishesWithFavorites = rawDishes.map(dish => ({
+      dishesWithFavorites = normalizedDishes.map(dish => ({
         ...dish,
         isFavorite: false
       }));
@@ -110,13 +81,13 @@ const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
     // Sync with global favorite updates
     const syncedDishes = syncWithFavoriteUpdates(dishesWithFavorites);
     
-    console.log("🎯 Final synced dishes:", syncedDishes.length);
+    console.log("Final dishes:", syncedDishes.length);
     
     setAllDishes(syncedDishes);
     setFilteredDishes(syncedDishes);
     
   } catch (error) {
-    console.error("❌ Error fetching high-rated dishes:", error);
+    console.error("Error fetching high-rated dishes:", error);
     Alert.alert("Lỗi", "Không thể tải danh sách món ăn nổi bật");
   } finally {
     setLoading(false);
