@@ -1,12 +1,15 @@
 import { useAuth } from "@/hooks/useAuth";
-import { AppConfig } from "@/lib/config";
+import { auth } from "@/utils/firebaseConfig";
+import AppConfig from "@/lib/config";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
+import { signInWithCustomToken } from "firebase/auth";
 import { useEffect, useState, useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Alert,
+  Button,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,27 +20,31 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { signInWithCustomToken } from "firebase/auth";
-import { auth } from "@/utils/firebaseConfig";
 import * as yup from "yup";
 
-const API_BASE_URL = AppConfig.api.url;
-
-// Login schema
-const loginSchema = yup.object({
-  email: yup.string().email("Email không hợp lệ").required("Email là bắt buộc"),
-  password: yup.string().min(6, "Mật khẩu ít nhất 6 ký tự").required("Mật khẩu là bắt buộc"),
+// Schema xác thực
+const registerSchema = yup.object({
+  email: yup.string().email("Vui lòng nhập Email hợp lệ").required("Bắt buộc"),
+  password: yup
+    .string()
+    .min(6, "Mật khẩu chứa ít nhất 6 ký tự")
+    .required("Bắt buộc"),
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref("password")], "Mật khẩu không trùng khớp")
+    .required("Bắt buộc"),
 });
 
-type LoginFormData = yup.InferType<typeof loginSchema>;
-type LoginStep = 'credentials' | 'otp';
+type RegisterFormData = yup.InferType<typeof registerSchema>;
 
-export default function LoginOTP() {
+type RegistrationStep = 'info' | 'otp' | 'completed';
+
+export default function OTPRegister() {
   const router = useRouter();
   const { login, redirectIfAuthenticated } = useAuth();
   
   // State management
-  const [currentStep, setCurrentStep] = useState<LoginStep>('credentials');
+  const [currentStep, setCurrentStep] = useState<RegistrationStep>('info');
   const [isLoading, setIsLoading] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
@@ -45,23 +52,27 @@ export default function LoginOTP() {
   
   // OTP related states
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isResending, setIsResending] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
-  const [attempts, setAttempts] = useState(0);
-  const maxAttempts = 3;
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [maxAttempts] = useState(3);
+  
+  // Refs for OTP inputs
+  const otpInputRefs = useRef<TextInput[]>([]);
 
   // Form management
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: yupResolver(loginSchema),
+    reset,
+  } = useForm<RegisterFormData>({
+    resolver: yupResolver(registerSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
-  
-  // Refs for OTP inputs
-  const otpInputRefs = useRef<TextInput[]>([]);
 
   // Redirect if authenticated
   useEffect(() => {
@@ -76,27 +87,29 @@ export default function LoginOTP() {
     }
   }, [resendCountdown]);
 
-  // Handle login form submit (Step 1: Verify email + password → Send OTP)
-  const onSubmitLogin = async (data: LoginFormData) => {
+  // Handle registration form submit
+  const onSubmitRegistration = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      console.log("Step 1: Verifying credentials and sending OTP:", data.email);
+      console.log("Starting new OTP registration for:", data.email);
       
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      // Call backend register API (Step 1: Send OTP for registration)
+      const response = await fetch(`${AppConfig.api.url}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           email: data.email,
-          password: data.password
+          password: data.password,
+          name: data.email.split('@')[0] // Use email prefix as default name
         })
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.detail || 'Đăng nhập thất bại');
+        throw new Error(result.detail || 'Đăng ký thất bại');
       }
 
       if (result.success) {
@@ -108,15 +121,15 @@ export default function LoginOTP() {
         
         Alert.alert(
           'OTP đã được gửi',
-          result.message || 'Chúng tôi đã gửi mã xác thực đến email của bạn.',
+          result.message,
           [{ text: 'OK' }]
         );
       } else {
         throw new Error('Phản hồi không hợp lệ từ server');
       }
     } catch (error: any) {
-      console.error("Login step 1 error:", error);
-      Alert.alert('Lỗi', error.message || 'Có lỗi xảy ra khi đăng nhập');
+      console.error("Registration error:", error);
+      Alert.alert('Lỗi', error.message || 'Có lỗi xảy ra khi đăng ký');
     } finally {
       setIsLoading(false);
     }
@@ -139,25 +152,18 @@ export default function LoginOTP() {
     }
   };
 
-  // Handle OTP key press
-  const handleKeyPress = (key: string, index: number) => {
-    if (key === 'Backspace' && !otp[index] && index > 0) {
-      otpInputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  // Verify OTP
+  // Handle OTP verification
   const handleVerifyOTP = async (otpCode: string) => {
-    if (attempts >= maxAttempts) {
+    if (otpAttempts >= maxAttempts) {
       Alert.alert('Lỗi', 'Đã vượt quá số lần thử tối đa');
       return;
     }
 
-    setIsVerifying(true);
+    setIsLoading(true);
     try {
-      console.log("Verifying OTP for login:", otpCode);
+      console.log("Verifying OTP for registration:", otpCode);
       
-      const response = await fetch(`${API_BASE_URL}/api/auth/login/verify-otp`, {
+      const response = await fetch(`${AppConfig.api.url}/api/auth/register/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -165,22 +171,24 @@ export default function LoginOTP() {
         body: JSON.stringify({
           email: userEmail,
           otp_code: otpCode,
-          otp_id: otpId
+          otp_id: otpId,
+          password: userPassword,
+          name: userEmail.split('@')[0] // Use email prefix as default name
         })
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        setAttempts(prev => prev + 1);
+        setOtpAttempts(prev => prev + 1);
         setOtp(['', '', '', '', '', '']);
         throw new Error(result.detail || 'Xác thực OTP thất bại');
       }
 
       if (result.success) {
-        console.log("✅ OTP verified successfully");
+        console.log("✅ OTP verified successfully - Backend đã tạo account");
         
-        // Backend trả về custom token, sign in với Firebase
+        // Backend đã tạo Firebase account và trả về custom token
         if (result.firebase_token) {
           try {
             console.log("Signing in with custom token from backend...");
@@ -205,12 +213,15 @@ export default function LoginOTP() {
             login(idToken, userData);
             
             Alert.alert(
-              'Đăng nhập thành công!',
-              'Chào mừng bạn quay trở lại.',
+              'Đăng ký thành công!',
+              'Tài khoản của bạn đã được tạo và xác thực.',
               [
                 {
                   text: 'OK',
-                  onPress: () => router.replace('/(tabs)')
+                  onPress: () => {
+                    setCurrentStep('completed');
+                    setTimeout(() => router.replace('/(tabs)'), 1000);
+                  }
                 }
               ]
             );
@@ -219,7 +230,7 @@ export default function LoginOTP() {
             console.error("Firebase custom token sign in error:", firebaseError);
             Alert.alert(
               'Lỗi đăng nhập',
-              'OTP đã được xác thực nhưng có lỗi khi đăng nhập. Vui lòng thử lại.',
+              'Tài khoản đã được tạo nhưng có lỗi khi đăng nhập. Vui lòng thử đăng nhập thủ công.',
               [
                 {
                   text: 'OK',
@@ -231,14 +242,12 @@ export default function LoginOTP() {
         } else {
           // Fallback: Backend không trả custom token
           Alert.alert(
-            'OTP xác thực thành công!',
-            'Vui lòng thử đăng nhập lại.',
+            'Đăng ký thành công!',
+            'Tài khoản đã được tạo. Vui lòng đăng nhập.',
             [
               {
                 text: 'OK',
-                onPress: () => {
-                  router.replace(`/login?email=${encodeURIComponent(userEmail)}&verified=true`);
-                }
+                onPress: () => router.replace(`/login?email=${encodeURIComponent(userEmail)}`)
               }
             ]
           );
@@ -250,24 +259,24 @@ export default function LoginOTP() {
       console.error("OTP verification error:", error);
       Alert.alert('Lỗi', error.message || 'Có lỗi xảy ra khi xác thực OTP');
     } finally {
-      setIsVerifying(false);
+      setIsLoading(false);
     }
   };
 
-  // Resend OTP
+  // Handle resend OTP
   const handleResendOTP = async () => {
-    if (resendCountdown > 0 || isResending) return;
+    if (resendCountdown > 0) return;
 
-    setIsResending(true);
+    setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/resend-otp`, {
+      const response = await fetch(`${AppConfig.api.url}/api/auth/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          otp_id: otpId,
-          email: userEmail
+          email: userEmail,
+          otp_id: otpId
         })
       });
 
@@ -280,26 +289,26 @@ export default function LoginOTP() {
       if (result.success) {
         setResendCountdown(60);
         setOtp(['', '', '', '', '', '']);
-        setAttempts(0);
+        setOtpAttempts(0);
         Alert.alert('Thành công', result.message);
       }
     } catch (error: any) {
       Alert.alert('Lỗi', error.message || 'Không thể gửi lại OTP');
     } finally {
-      setIsResending(false);
+      setIsLoading(false);
     }
   };
 
-  // Handle back to credentials step
-  const handleBackToCredentials = () => {
-    setCurrentStep('credentials');
+  // Handle back to info step
+  const handleBackToInfo = () => {
+    setCurrentStep('info');
     setOtp(['', '', '', '', '', '']);
-    setAttempts(0);
+    setOtpAttempts(0);
     setResendCountdown(0);
   };
 
-  // Render login credentials form
-  const renderCredentialsForm = () => (
+  // Render registration form
+  const renderRegistrationForm = () => (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
@@ -312,9 +321,9 @@ export default function LoginOTP() {
         />
       </View>
 
-      <Text style={styles.title}>Đăng nhập</Text>
+      <Text style={styles.title}>Đăng ký tài khoản</Text>
       <Text style={styles.subtitle}>
-        Nhập email và mật khẩu để nhận mã xác thực
+        Nhập thông tin để tạo tài khoản mới
       </Text>
 
       {/* Email */}
@@ -322,16 +331,15 @@ export default function LoginOTP() {
       <Controller
         control={control}
         name="email"
-        render={({ field: { onChange, onBlur, value } }) => (
+        render={({ field: { onChange, value } }) => (
           <View>
             <TextInput
               value={value}
               onChangeText={onChange}
-              onBlur={onBlur}
               placeholder="Nhập địa chỉ email"
               keyboardType="email-address"
               autoCapitalize="none"
-              style={[styles.input, errors.email && styles.inputError]}
+              style={styles.input}
             />
             {errors.email && (
               <Text style={styles.errorText}>{errors.email.message}</Text>
@@ -345,18 +353,42 @@ export default function LoginOTP() {
       <Controller
         control={control}
         name="password"
-        render={({ field: { onChange, onBlur, value } }) => (
+        render={({ field: { onChange, value } }) => (
           <View>
             <TextInput
               value={value}
               onChangeText={onChange}
-              onBlur={onBlur}
               placeholder="Nhập mật khẩu"
               secureTextEntry
-              style={[styles.input, errors.password && styles.inputError]}
+              style={styles.input}
             />
             {errors.password && (
-              <Text style={styles.errorText}>{errors.password.message}</Text>
+              <Text style={styles.errorText}>
+                {errors.password.message}
+              </Text>
+            )}
+          </View>
+        )}
+      />
+
+      {/* Confirm Password */}
+      <Text style={styles.label}>Nhập lại mật khẩu</Text>
+      <Controller
+        control={control}
+        name="confirmPassword"
+        render={({ field: { onChange, value } }) => (
+          <View>
+            <TextInput
+              value={value}
+              onChangeText={onChange}
+              placeholder="Nhập lại mật khẩu"
+              secureTextEntry
+              style={styles.input}
+            />
+            {errors.confirmPassword && (
+              <Text style={styles.errorText}>
+                {errors.confirmPassword.message}
+              </Text>
             )}
           </View>
         )}
@@ -364,30 +396,116 @@ export default function LoginOTP() {
 
       <TouchableOpacity
         style={[styles.submitButton, isLoading && styles.disabledButton]}
-        onPress={handleSubmit(onSubmitLogin)}
+        onPress={handleSubmit(onSubmitRegistration)}
         disabled={isLoading}
       >
         <Text style={styles.submitButtonText}>
-          {isLoading ? "Đang xác thực..." : "Gửi mã OTP"}
+          {isLoading ? 'Đang gửi OTP...' : 'Gửi mã xác thực'}
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.linkButton}
-        onPress={() => router.replace("/otp-register")}
+        onPress={() => router.replace('/login')}
       >
         <Text style={styles.linkText}>
-          Chưa có tài khoản? Đăng ký ngay
+          Đã có tài khoản? Đăng nhập ngay
         </Text>
       </TouchableOpacity>
     </ScrollView>
+  );
+
+  // Render OTP verification form
+  const renderOTPForm = () => (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("@/assets/images/logo.png")}
+          style={styles.logo}
+        />
+      </View>
+
+      <Text style={styles.title}>Xác thực Email</Text>
+      <Text style={styles.subtitle}>
+        Nhập mã 6 số đã được gửi đến{'\n'}
+        <Text style={styles.emailText}>{userEmail}</Text>
+      </Text>
+
+      <View style={styles.otpContainer}>
+        {otp.map((digit, index) => (
+          <TextInput
+            key={index}
+            ref={(ref) => {
+              if (ref) otpInputRefs.current[index] = ref;
+            }}
+            style={styles.otpInput}
+            value={digit}
+            onChangeText={(text) => handleOtpChange(text.slice(-1), index)}
+            keyboardType="numeric"
+            maxLength={1}
+            textAlign="center"
+            selectTextOnFocus
+          />
+        ))}
+      </View>
+
+      <Text style={styles.attemptsText}>
+        Còn {maxAttempts - otpAttempts} lần thử
+      </Text>
+
+      <TouchableOpacity
+        style={[
+          styles.resendButton,
+          (resendCountdown > 0 || isLoading) && styles.disabledButton
+        ]}
+        onPress={handleResendOTP}
+        disabled={resendCountdown > 0 || isLoading}
+      >
+        <Text style={styles.resendButtonText}>
+          {isLoading 
+            ? 'Đang gửi...' 
+            : resendCountdown > 0 
+              ? `Gửi lại sau ${resendCountdown}s`
+              : 'Gửi lại mã OTP'
+          }
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={handleBackToInfo}
+      >
+        <Text style={styles.backButtonText}>← Quay lại</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  // Render completion screen
+  const renderCompletionScreen = () => (
+    <View style={styles.completionContainer}>
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("@/assets/images/logo.png")}
+          style={styles.logo}
+        />
+      </View>
+      <Text style={styles.title}>🎉 Đăng ký thành công!</Text>
+      <Text style={styles.subtitle}>
+        Tài khoản của bạn đã được tạo và xác thực.{'\n'}
+        Đang chuyển đến ứng dụng...
+      </Text>
+    </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen 
         options={{ 
-          title: currentStep === 'credentials' ? 'Đăng nhập' : 'Xác thực OTP',
+          title: currentStep === 'info' ? 'Đăng ký' : 'Xác thực OTP',
           headerShown: true 
         }} 
       />
@@ -396,92 +514,9 @@ export default function LoginOTP() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {currentStep === 'credentials' && renderCredentialsForm()}
-        {currentStep === 'otp' && (
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-          <View style={styles.logoContainer}>
-            <Image
-              source={require("@/assets/images/logo.png")}
-              style={styles.logo}
-            />
-          </View>
-
-          <Text style={styles.title}>Xác thực đăng nhập</Text>
-          <Text style={styles.subtitle}>
-            Nhập mã 6 số đã được gửi đến{'\n'}
-            <Text style={styles.emailText}>{userEmail}</Text>
-          </Text>
-
-          <View style={styles.otpContainer}>
-            {otp.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => {
-                  if (ref) otpInputRefs.current[index] = ref;
-                }}
-                style={[
-                  styles.otpInput,
-                  digit && styles.otpInputFilled
-                ]}
-                value={digit}
-                onChangeText={(text) => handleOtpChange(text.slice(-1), index)}
-                onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                keyboardType="numeric"
-                maxLength={1}
-                textAlign="center"
-                selectTextOnFocus
-                editable={!isVerifying}
-              />
-            ))}
-          </View>
-
-          <Text style={styles.attemptsText}>
-            Còn {maxAttempts - attempts} lần thử
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.verifyButton,
-              isVerifying && styles.disabledButton
-            ]}
-            onPress={() => handleVerifyOTP(otp.join(''))}
-            disabled={isVerifying || otp.some(digit => digit === '')}
-          >
-            <Text style={styles.verifyButtonText}>
-              {isVerifying ? 'Đang xác thực...' : 'Xác thực và đăng nhập'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.resendButton,
-              (resendCountdown > 0 || isResending) && styles.disabledButton
-            ]}
-            onPress={handleResendOTP}
-            disabled={resendCountdown > 0 || isResending}
-          >
-            <Text style={styles.resendButtonText}>
-              {isResending 
-                ? 'Đang gửi...' 
-                : resendCountdown > 0 
-                  ? `Gửi lại sau ${resendCountdown}s`
-                  : 'Gửi lại mã OTP'
-              }
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBackToCredentials}
-          >
-            <Text style={styles.backButtonText}>← Quay lại</Text>
-          </TouchableOpacity>
-          </ScrollView>
-        )}
+        {currentStep === 'info' && renderRegistrationForm()}
+        {currentStep === 'otp' && renderOTPForm()}
+        {currentStep === 'completed' && renderCompletionScreen()}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -525,7 +560,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#007AFF',
   },
-  // Form styles
   label: { 
     marginBottom: 8,
     fontSize: 16,
@@ -538,9 +572,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
-  },
-  inputError: {
-    borderColor: "red",
   },
   errorText: { 
     color: "red", 
@@ -561,6 +592,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
+  disabledButton: {
+    backgroundColor: "#ccc",
+  },
   linkButton: {
     marginTop: 16,
   },
@@ -569,7 +603,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
   },
-  // OTP styles
+  // OTP Styles
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -586,27 +620,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     backgroundColor: '#f9f9f9',
   },
-  otpInputFilled: {
-    borderColor: '#007AFF',
-    backgroundColor: '#f0f8ff',
-  },
   attemptsText: {
     textAlign: 'center',
     color: '#666',
     marginBottom: 24,
-    fontSize: 14,
-  },
-  verifyButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-  },
-  verifyButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
   resendButton: {
     backgroundColor: '#28a745',
@@ -620,9 +637,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
   backButton: {
     marginTop: 16,
   },
@@ -630,5 +644,12 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     textAlign: 'center',
+  },
+  // Completion Styles
+  completionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
 });
