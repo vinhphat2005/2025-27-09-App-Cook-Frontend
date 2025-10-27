@@ -2,6 +2,30 @@
  * App Configuration
  * Quản lý tất cả environment variables và cấu hình ứng dụng
  */
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+/**
+ * Auto-detect backend API URL
+ * - Production: Dùng EXPO_PUBLIC_API_URL từ .env
+ * - Development: Tự động phát hiện IP từ Expo dev server
+ */
+const getApiUrl = (): string => {
+  // Nếu có EXPO_PUBLIC_API_URL trong .env và không phải localhost
+  const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envApiUrl && !envApiUrl.includes('localhost') && !envApiUrl.includes('127.0.0.1')) {
+    return envApiUrl;
+  }
+
+  // Auto-detect từ Expo manifest (chỉ work trong development)
+  if (__DEV__ && Constants.expoConfig?.hostUri) {
+    const [host] = Constants.expoConfig.hostUri.split(':');
+    return `http://${host}:8000`;
+  }
+
+  // Fallback: Dùng .env hoặc localhost
+  return envApiUrl || 'http://localhost:8000';
+};
 
 export const AppConfig = {
   // Firebase Configuration
@@ -39,7 +63,9 @@ export const AppConfig = {
 
   // Backend API
   api: {
-    url: process.env.EXPO_PUBLIC_API_URL,
+    url: getApiUrl(),
+    // Expose raw env value for debugging
+    rawEnvUrl: process.env.EXPO_PUBLIC_API_URL,
   },
 } as const;
 
@@ -80,6 +106,8 @@ export const logConfig = () => {
       packageName: AppConfig.app.packageName,
       emailVerificationUrl: AppConfig.emailVerification.actionUrl,
       apiUrl: AppConfig.api.url,
+      rawEnvApiUrl: AppConfig.api.rawEnvUrl,
+      expoHostUri: Constants.expoConfig?.hostUri,
     });
   }
 };
