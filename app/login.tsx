@@ -15,6 +15,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Keyboard,
+  AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signInWithCustomToken } from "firebase/auth";
@@ -62,6 +64,25 @@ export default function LoginOTP() {
   
   // Refs for OTP inputs
   const otpInputRefs = useRef<TextInput[]>([]);
+
+  // ✅ Fix keyboard not showing after app switch
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && currentStep === 'otp') {
+        // Only refocus when in OTP step
+        setTimeout(() => {
+          const firstEmptyIndex = otp.findIndex(digit => digit === '');
+          if (firstEmptyIndex !== -1 && otpInputRefs.current[firstEmptyIndex]) {
+            otpInputRefs.current[firstEmptyIndex]?.focus();
+          }
+        }, 100);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [currentStep, otp]);
 
   // Redirect if authenticated
   useEffect(() => {
@@ -331,6 +352,7 @@ export default function LoginOTP() {
               placeholder="Nhập địa chỉ email"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoFocus={true}
               style={[styles.input, errors.email && styles.inputError]}
             />
             {errors.email && (
@@ -387,8 +409,7 @@ export default function LoginOTP() {
     <SafeAreaView style={styles.container}>
       <Stack.Screen 
         options={{ 
-          title: currentStep === 'credentials' ? 'Đăng nhập' : 'Xác thực OTP',
-          headerShown: true 
+          headerShown: false 
         }} 
       />
       <KeyboardAvoidingView
@@ -430,10 +451,16 @@ export default function LoginOTP() {
                 value={digit}
                 onChangeText={(text) => handleOtpChange(text.slice(-1), index)}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                keyboardType="numeric"
+                onSubmitEditing={() => {
+                  if (index < 5) {
+                    otpInputRefs.current[index + 1]?.focus();
+                  }
+                }}
+                keyboardType="number-pad"
                 maxLength={1}
                 textAlign="center"
                 selectTextOnFocus
+                autoFocus={index === 0}
                 editable={!isVerifying}
               />
             ))}

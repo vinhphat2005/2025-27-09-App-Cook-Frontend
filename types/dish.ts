@@ -1,7 +1,7 @@
 import { useAuthStore } from "@/store/authStore";
 
 export type Dish = {
-  id: number;
+  id: number | string; // ✅ Support both number and MongoDB ObjectId string
   image: string;
   time: string;            // "15 phút"
   label: string;           // tên món

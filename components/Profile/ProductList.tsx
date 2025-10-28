@@ -10,6 +10,9 @@ type Props = {
   loading?: boolean;
   emptyMessage?: string;
   emptySubMessage?: string;
+  showDeleteButton?: boolean; // Show delete button for user's dishes
+  onPressDelete?: (dish: Dish) => void; // Delete handler
+  deletingDishId?: number | string | null; // ✅ Support both types
 };
 
 export const ProductList = ({
@@ -20,6 +23,9 @@ export const ProductList = ({
   loading = false,
   emptyMessage = "Không có món ăn nào",
   emptySubMessage = "Hãy thử tìm kiếm món ăn khác!",
+  showDeleteButton = false,
+  onPressDelete,
+  deletingDishId = null,
 }: Props) => {
   // Ensure dishes is always an array
   const safeDishes = Array.isArray(dishes) ? dishes : [];
@@ -59,6 +65,9 @@ export const ProductList = ({
               itemsPerRow={itemsPerRow}
               onPress={onPress}
               onPressFavorite={onPressFavorite}
+              showDeleteButton={showDeleteButton}
+              onPressDelete={onPressDelete}
+              isDeleteLoading={String(deletingDishId) === String(dish.id)} // ✅ String comparison
             />
           );
         })}

@@ -4,6 +4,7 @@ import { ProductList } from "@/components/Profile/ProductList";
 import { State } from "@/components/Profile/State";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
+import { useAdmin } from "@/hooks/useAdmin";
 import { normalizeDishList } from "@/types/dish";
 import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
 import EntypoIcon from "@expo/vector-icons/Entypo";
@@ -19,6 +20,7 @@ import {
   View,
   Alert,
   RefreshControl,
+  TextInput,
 } from "react-native";
 import type { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { useFocusEffect } from "@react-navigation/native";
@@ -28,10 +30,13 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 export default function PersonalScreen() {
   const { user, logout, token } = useAuthStore();
   const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
+  const { isAdmin, loading: checkingAdmin } = useAdmin();
   
   const [userDishes, setUserDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deletingDishId, setDeletingDishId] = useState<number | string | null>(null); // ✅ Support both types
 
   // ✅ Sync with global favorite updates
   const syncWithFavoriteUpdates = useCallback((dishes: Dish[]) => {
@@ -43,24 +48,28 @@ export default function PersonalScreen() {
     });
   }, [getFavoriteStatus]);
 
-  // ✅ FIXED: Fetch user's dishes with proper favorite sync
-  const fetchUserDishes = useCallback(async () => {
+  // ✅ FIXED: Fetch user's dishes with proper favorite sync and search support
+  const fetchUserDishes = useCallback(async (search = "") => {
     if (!token) {
       console.log("❌ No token available");
       setLoading(false);
       return;
     }
 
-    console.log("🚀 Starting fetchUserDishes...");
+    console.log("🚀 Starting fetchUserDishes...", search ? `Search: "${search}"` : "");
     console.log("🔑 Token:", token ? "Present" : "Missing");
     console.log("👤 Current user:", user);
 
     try {
       let rawDishes: any[] = [];
 
+      // Build URL with search parameter
+      const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
+      const limitParam = search ? "" : "&limit=10"; // No limit when searching
+
       // ✅ Option 1: Use dedicated /my-dishes endpoint (RECOMMENDED)
       console.log("📡 Trying /dishes/my-dishes endpoint...");
-      let response = await fetch(`${API_URL}/dishes/my-dishes?limit=10`, {
+      let response = await fetch(`${API_URL}/dishes/my-dishes?${limitParam}${searchParam}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -100,24 +109,22 @@ export default function PersonalScreen() {
           const allDishes = await response.json();
           
           console.log("📋 All dishes count:", allDishes.length);
-          console.log("👤 User for filtering:", {
-            id: user?.id,
-            email: user?.email,
-            username: user?.username
+        console.log("👤 User for filtering:", {
+          id: user?.id,
+          email: user?.email,
+          username: user?.username
+        });
+        
+        if (allDishes.length > 0) {
+          console.log("🔍 First few dishes for comparison:");
+          allDishes.slice(0, 3).forEach((dish: any, index: number) => {
+            console.log(`  ${index + 1}. ${dish.name} - creator_id: ${dish.creator_id}`);
           });
-          
-          if (allDishes.length > 0) {
-            console.log("🔍 First few dishes for comparison:");
-            allDishes.slice(0, 3).forEach((dish, index) => {
-              console.log(`  ${index + 1}. ${dish.name} - creator_id: ${dish.creator_id}`);
-            });
-          }
-          
-          // Filter dishes created by current user
-          rawDishes = allDishes.filter((dish: any) => {
-            const createdBy = dish.creator_id || dish.created_by || dish.user_id || dish.owner_id;
-            
-            const isMatch = createdBy === user?.id || 
+        }
+        
+        // Filter dishes created by current user
+        rawDishes = allDishes.filter((dish: any) => {
+          const createdBy = dish.creator_id || dish.created_by || dish.user_id || dish.owner_id;            const isMatch = createdBy === user?.id || 
                            createdBy === String(user?.id) ||
                            createdBy === user?.email || 
                            createdBy === user?.username;
@@ -181,8 +188,21 @@ export default function PersonalScreen() {
   const onRefresh = useCallback(() => {
     console.log("🔄 Manual refresh triggered");
     setRefreshing(true);
-    fetchUserDishes();
-  }, [fetchUserDishes]);
+    fetchUserDishes(searchQuery);
+  }, [fetchUserDishes, searchQuery]);
+
+  // ✅ Debounced search handler
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery !== undefined) {
+        console.log(`🔍 Searching for: "${searchQuery}"`);
+        setLoading(true);
+        fetchUserDishes(searchQuery);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, fetchUserDishes]);
 
   // ✅ Handle dish press with navigation
   const handleDishPress = useCallback((dish: Dish) => {
@@ -255,6 +275,78 @@ export default function PersonalScreen() {
     }
   }, [userDishes, token, updateFavoriteStatus]);
 
+  // ✅ Handle dish deletion with confirmation
+  const handleDeleteDish = useCallback(async (dish: Dish) => {
+    try {
+      if (!token) {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập để sử dụng tính năng này");
+        return;
+      }
+
+      // Show confirmation dialog
+      Alert.alert(
+        "Xóa món ăn",
+        `Bạn có chắc chắn muốn xóa "${dish.label}"?\n\nMón ăn sẽ được chuyển vào thùng rác và có thể khôi phục trong vòng 7 ngày.`,
+        [
+          {
+            text: "Hủy",
+            style: "cancel"
+          },
+          {
+            text: "Xóa",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                setDeletingDishId(dish.id);
+                console.log(`🗑️ Deleting dish ${dish.id}: ${dish.label}`);
+
+                const response = await fetch(`${API_URL}/dishes/${dish.id}`, {
+                  method: "DELETE",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                });
+
+                if (!response.ok) {
+                  const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+                  console.error(`❌ Delete failed: ${response.status}`, errorData);
+                  throw new Error(errorData.detail || "Failed to delete dish");
+                }
+
+                const result = await response.json();
+                console.log(`✅ Successfully deleted dish ${dish.id}`, result);
+
+                // Remove from local state
+                setUserDishes(prev => prev.filter(d => d.id !== dish.id));
+
+                // Show success message with recovery info
+                Alert.alert(
+                  "Đã xóa món ăn",
+                  result.recovery_deadline 
+                    ? `Món ăn đã được chuyển vào thùng rác.\nCó thể khôi phục trước ngày ${new Date(result.recovery_deadline).toLocaleDateString("vi-VN")}`
+                    : "Món ăn đã được xóa thành công"
+                );
+
+              } catch (error: any) {
+                console.error("❌ Error deleting dish:", error);
+                Alert.alert(
+                  "Lỗi",
+                  error.message || "Không thể xóa món ăn. Vui lòng thử lại sau."
+                );
+              } finally {
+                setDeletingDishId(null);
+              }
+            }
+          }
+        ]
+      );
+
+    } catch (error) {
+      console.error("❌ Error in handleDeleteDish:", error);
+    }
+  }, [token]);
+
   // ✅ IMPROVED: Sync when favoriteUpdates change with logging
   useEffect(() => {
     if (Object.keys(favoriteUpdates).length > 0) {
@@ -287,10 +379,12 @@ export default function PersonalScreen() {
     }, [syncWithFavoriteUpdates, loading, refreshing, fetchUserDishes])
   );
 
-  // ✅ Initial data fetch
+  // ✅ Initial data fetch - separate from search
   useEffect(() => {
-    fetchUserDishes();
-  }, [fetchUserDishes]);
+    if (token && !searchQuery) {
+      fetchUserDishes("");
+    }
+  }, [token]); // Only depend on token, not searchQuery
 
   // ✅ Debug user info on component mount
   useEffect(() => {
@@ -338,9 +432,27 @@ export default function PersonalScreen() {
                 size={30}
                 color="#dc502e"
               />
-            </Pressable>
+          </Pressable>
 
-            {/* View History Button */}
+          {/* Admin Panel Button - Only show if user is admin */}
+          {!checkingAdmin && isAdmin && (
+            <Pressable
+              style={styles.buttonAdmin}
+              onPress={() => router.push("/admin-panel" as any)}
+            >
+              <Ionicons name="shield-checkmark" size={30} color="#FF6347" />
+            </Pressable>
+          )}
+
+          {/* Trash Button - View deleted dishes */}
+          <Pressable
+            style={styles.buttonTrash}
+            onPress={() => router.push("/trash")}
+          >
+            <Ionicons name="trash-outline" size={30} color="#dc502e" />
+          </Pressable>
+
+          {/* View History Button */}
             <Pressable
               style={styles.buttonHistory}
               onPress={() => router.push("/view_history")}
@@ -353,7 +465,7 @@ export default function PersonalScreen() {
               <FontAweSomeIcon name="sign-out" size={30} color="#dc502e" />
             </Pressable>
           </View>
-          <Text style={styles.address}>{user?.address}</Text>
+          {user?.address && <Text style={styles.address}>{user.address}</Text>}
         </View>
 
         <State />
@@ -363,14 +475,35 @@ export default function PersonalScreen() {
           <Text style={styles.sectionTitle}>
             Món ăn của bạn ({userDishes.length})
           </Text>
+          
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm kiếm món ăn..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery("")} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={20} color="#999" />
+              </Pressable>
+            )}
+          </View>
+          
           <ProductList
             dishes={userDishes}
             onPressFavorite={handleFavoritePress}
             onPress={handleDishPress}
             itemsPerRow={2}
             loading={loading}
-            emptyMessage="Chưa có món ăn nào"
-            emptySubMessage="Hãy thêm món ăn đầu tiên của bạn!"
+            emptyMessage={searchQuery ? "Không tìm thấy món ăn" : "Chưa có món ăn nào"}
+            emptySubMessage={searchQuery ? "Thử từ khóa khác!" : "Hãy thêm món ăn đầu tiên của bạn!"}
+            showDeleteButton={true}
+            onPressDelete={handleDeleteDish}
+            deletingDishId={deletingDishId}
           />
         </View>
       </ScrollView>
@@ -427,6 +560,8 @@ const styles = StyleSheet.create({
     gap: 30,
   },
   buttonEditProfile: {},
+  buttonAdmin: {},
+  buttonTrash: {}, // ✅ Add trash button style
   buttonHistory: {},
   button: {},
   dishesSection: {
@@ -438,5 +573,26 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 10,
     marginLeft: 5,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    height: 48,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    paddingVertical: 0,
+  },
+  clearButton: {
+    padding: 4,
   },
 });

@@ -26,7 +26,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { token } = useAuthStore(); 
-  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
+  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus, setAllFavorites } = useFavoriteStore();
 
   // ✅ Sync dishes with global favorite updates
   const syncWithFavoriteUpdates = useCallback(
@@ -107,17 +107,49 @@ export default function HomeScreen() {
     }
   }, [favoriteUpdates, syncWithFavoriteUpdates]);
 
-  // ✅ Refresh when screen comes into focus (ensure latest favorite sync)
+  // ✅ Fetch user favorites from API to sync global store
+  const fetchUserFavorites = useCallback(async () => {
+    if (!token || token === "null" || token === "undefined") return;
+
+    try {
+      const res = await fetch(`${API_URL}/users/me/favorites`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        const favoriteDishes = await res.json();
+        console.log(`📥 [Index] Fetched ${favoriteDishes.length} favorites from API`);
+        
+        // ✅ Replace global store with fresh favorites from API (as strings)
+        const favoriteIds = favoriteDishes.map((dish: any) => String(dish.id));
+        
+        setAllFavorites(favoriteIds);
+        console.log(`📝 [Index] Updated global store with ${favoriteIds.length} favorites:`, favoriteIds);
+        
+        // Sync UI with updated global store
+        setMatches((prev) => syncWithFavoriteUpdates(prev));
+        setTodayDishes((prev) => syncWithFavoriteUpdates(prev));
+      }
+    } catch (err) {
+      console.log("Failed to fetch favorites:", err);
+    }
+  }, [token, setAllFavorites, syncWithFavoriteUpdates]);
+
+  // ✅ Refresh when screen comes into focus (fetch latest favorites + sync)
   useFocusEffect(
     useCallback(() => {
-      setMatches((prev) => syncWithFavoriteUpdates(prev));
-      setTodayDishes((prev) => syncWithFavoriteUpdates(prev));
-    }, [syncWithFavoriteUpdates])
+      console.log("🔄 [Index] Screen focused - fetching latest favorites");
+      fetchUserFavorites(); // Fetch from API to sync global store
+    }, [fetchUserFavorites])
   );
 
   // ✅ Toggle favorite (optimistic UI + sync global store)
   const toggleFavorite = useCallback(
-    async (dishId: number) => {
+    async (dishId: number | string) => { // ✅ Accept both types
       try {
         const currentToken = useAuthStore.getState().token;
         if (!currentToken) {
@@ -126,23 +158,28 @@ export default function HomeScreen() {
           return;
         }
 
+        const dishStringId = String(dishId); // ✅ Convert to string for consistency
+
         // Get current favorite status
-        const currentDish = [...matches, ...todayDishes].find((d) => d.id === dishId);
+        const currentDish = [...matches, ...todayDishes].find((d) => String(d.id) === dishStringId);
         const newFavoriteStatus = !currentDish?.isFavorite;
+
+        console.log(`🎯 [Index] Toggling favorite for dish ${dishStringId}: ${currentDish?.isFavorite} → ${newFavoriteStatus}`);
 
         // Optimistic update
         setMatches((prev) =>
-          prev.map((dish) => (dish.id === dishId ? { ...dish, isFavorite: newFavoriteStatus } : dish))
+          prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: newFavoriteStatus } : dish))
         );
         setTodayDishes((prev) =>
-          prev.map((dish) => (dish.id === dishId ? { ...dish, isFavorite: newFavoriteStatus } : dish))
+          prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: newFavoriteStatus } : dish))
         );
 
-        // Update global store
-        updateFavoriteStatus(dishId, newFavoriteStatus);
+        // Update global store with string key
+        updateFavoriteStatus(dishStringId, newFavoriteStatus);
+        console.log(`📝 [Index] Updated global store: dish ${dishStringId} = ${newFavoriteStatus}`);
 
         // Call API
-        const response = await fetch(`${API_URL}/dishes/${dishId}/toggle-favorite`, {
+        const response = await fetch(`${API_URL}/dishes/${dishStringId}/toggle-favorite`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -153,39 +190,27 @@ export default function HomeScreen() {
         if (!response.ok) {
           // Revert optimistic update on error
           setMatches((prev) =>
-            prev.map((dish) => (dish.id === dishId ? { ...dish, isFavorite: !newFavoriteStatus } : dish))
+            prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: !newFavoriteStatus } : dish))
           );
           setTodayDishes((prev) =>
-            prev.map((dish) => (dish.id === dishId ? { ...dish, isFavorite: !newFavoriteStatus } : dish))
+            prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: !newFavoriteStatus } : dish))
           );
-          updateFavoriteStatus(dishId, !newFavoriteStatus);
+          updateFavoriteStatus(dishStringId, !newFavoriteStatus);
           throw new Error("Failed to toggle favorite");
         }
+
+        console.log(`✅ [Index] Successfully toggled favorite for dish ${dishStringId}`);
       } catch (err: any) {
-        console.error("Error toggling favorite:", err);
+        console.error("❌ [Index] Error toggling favorite:", err);
         Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
       }
     },
     [router, matches, todayDishes, updateFavoriteStatus]
   );
 
-  // ✅ Handle dish press: log view history (if logged in) then navigate
+  // ✅ Handle dish press: navigate to detail (view logging handled by detail screen)
   const handleDishPress = useCallback(
     async (dish: Dish) => {
-      try {
-        const currentToken = useAuthStore.getState().token;
-        if (currentToken) {
-          await fetch(`${API_URL}/users/activity/viewed/${dish.id}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${currentToken}`,
-            },
-          });
-        }
-      } catch (err) {
-        console.error("Error logging view history:", err);
-      }
       router.push(`/detail?id=${dish.id}`);
     },
     [router]

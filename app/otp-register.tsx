@@ -18,6 +18,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Keyboard,
+  AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as yup from "yup";
@@ -78,6 +80,25 @@ export default function OTPRegister() {
   useEffect(() => {
     redirectIfAuthenticated();
   }, [redirectIfAuthenticated]);
+
+  // ✅ Fix keyboard not showing after app switch
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && currentStep === 'otp') {
+        // Only refocus when in OTP step
+        setTimeout(() => {
+          const firstEmptyIndex = otp.findIndex(digit => digit === '');
+          if (firstEmptyIndex !== -1 && otpInputRefs.current[firstEmptyIndex]) {
+            otpInputRefs.current[firstEmptyIndex]?.focus();
+          }
+        }, 100);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [currentStep, otp]);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -339,6 +360,7 @@ export default function OTPRegister() {
               placeholder="Nhập địa chỉ email"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoFocus={true}
               style={styles.input}
             />
             {errors.email && (
@@ -445,10 +467,16 @@ export default function OTPRegister() {
             style={styles.otpInput}
             value={digit}
             onChangeText={(text) => handleOtpChange(text.slice(-1), index)}
-            keyboardType="numeric"
+            onSubmitEditing={() => {
+              if (index < 5) {
+                otpInputRefs.current[index + 1]?.focus();
+              }
+            }}
+            keyboardType="number-pad"
             maxLength={1}
             textAlign="center"
             selectTextOnFocus
+            autoFocus={index === 0}
           />
         ))}
       </View>
@@ -505,8 +533,7 @@ export default function OTPRegister() {
     <SafeAreaView style={styles.container}>
       <Stack.Screen 
         options={{ 
-          title: currentStep === 'info' ? 'Đăng ký' : 'Xác thực OTP',
-          headerShown: true 
+          headerShown: false 
         }} 
       />
       <KeyboardAvoidingView

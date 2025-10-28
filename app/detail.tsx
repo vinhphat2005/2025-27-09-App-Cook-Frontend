@@ -93,7 +93,7 @@ export default function DishDetailScreen() {
   const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "";
   const PAGE_SIZE = 10;
 
-  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
+  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus, setAllFavorites } = useFavoriteStore();
 
   // Helper để lấy userId cho key cache
   const getUserId = useCallback(() => {
@@ -154,11 +154,11 @@ export default function DishDetailScreen() {
   const syncDishWithFavoriteUpdates = useCallback(() => {
     if (!dishData?.dish) return;
     
-    const dishNumericId = parseInt(dishData.dish.id);
-    const globalStatus = getFavoriteStatus(dishNumericId);
+    const dishStringId = String(dishData.dish.id); // ✅ Use string for MongoDB ObjectId
+    const globalStatus = getFavoriteStatus(dishStringId);
     
     if (globalStatus !== undefined && globalStatus !== dishData.dish.isFavorite) {
-      console.log(`Syncing dish ${dishNumericId} favorite status: ${globalStatus}`);
+      console.log(`🔄 [Detail] Syncing dish ${dishStringId} favorite status: ${globalStatus}`);
       setDishData(prev => prev ? {
         ...prev,
         dish: { ...prev.dish, isFavorite: globalStatus }
@@ -177,9 +177,11 @@ export default function DishDetailScreen() {
         return;
       }
 
-      const dishNumericId = parseInt(dishData.dish.id);
+      const dishStringId = String(dishData.dish.id); // ✅ Use string for MongoDB ObjectId
       const currentFavoriteStatus = dishData.dish.isFavorite;
       const newFavoriteStatus = !currentFavoriteStatus;
+
+      console.log(`🎯 [Detail] Toggling favorite for dish ${dishStringId}: ${currentFavoriteStatus} → ${newFavoriteStatus}`);
 
       // Optimistic update
       setDishData(prev => prev ? {
@@ -187,8 +189,9 @@ export default function DishDetailScreen() {
         dish: { ...prev.dish, isFavorite: newFavoriteStatus }
       } : null);
 
-      // Update global store
-      updateFavoriteStatus(dishNumericId, newFavoriteStatus);
+      // Update global store with STRING key
+      updateFavoriteStatus(dishStringId, newFavoriteStatus);
+      console.log(`📝 [Detail] Updated global store: dish ${dishStringId} = ${newFavoriteStatus}`);
 
       // Call API
       const response = await fetch(`${API_BASE_URL}/dishes/${dishId}/toggle-favorite`, {
@@ -202,7 +205,7 @@ export default function DishDetailScreen() {
           ...prev,
           dish: { ...prev.dish, isFavorite: currentFavoriteStatus }
         } : null);
-        updateFavoriteStatus(dishNumericId, currentFavoriteStatus);
+        updateFavoriteStatus(dishStringId, currentFavoriteStatus || false);
         
         const errorText = await response.text().catch(() => "");
         throw new Error(`Failed to toggle favorite: ${response.status} ${errorText}`);
@@ -212,7 +215,7 @@ export default function DishDetailScreen() {
       const ck = `dish:${dishId}`;
       cacheDel(ck);
       
-      console.log(`Toggled favorite for dish ${dishNumericId}: ${newFavoriteStatus}`);
+      console.log(`✅ [Detail] Toggled favorite for dish ${dishStringId}: ${newFavoriteStatus}`);
       
     } catch (err: any) {
       console.error("Error toggling favorite:", err);
@@ -249,6 +252,40 @@ export default function DishDetailScreen() {
   }, [dishId, token, API_BASE_URL, dishData, viewActivityLogged]);
 
   // ✅ API =====
+  
+  // Fetch user's favorite list to sync status  
+  const fetchUserFavorites = useCallback(async () => {
+    if (!token || token === "null" || token === "undefined") return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/users/me/favorites`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        const favoriteDishes = await res.json();
+        console.log(`✅ [Detail] Fetched ${favoriteDishes.length} favorite dishes from API`);
+        
+        // ✅ Replace global store with fresh favorites from API (as strings)
+        const favoriteIds = favoriteDishes.map((dish: any) => String(dish.id));
+        
+        setAllFavorites(favoriteIds);
+        console.log(`📝 [Detail] Updated global store with favorites:`, favoriteIds);
+        
+        // ✅ Log current dish favorite status for debugging
+        if (dishId) {
+          const isFavorite = favoriteDishes.some((dish: any) => {
+            return String(dish.id) === String(dishId);
+          });
+          console.log(`🔍 [Detail] Current dish ${dishId} is ${isFavorite ? 'FAVORITE' : 'NOT FAVORITE'}`);
+        }
+      }
+    } catch (err) {
+      console.log("❌ [Detail] Failed to fetch favorites:", err);
+    }
+  }, [token, API_BASE_URL, dishId, setAllFavorites]);
+  
   const fetchDishData = useCallback(async () => {
     if (!dishId) return;
 
@@ -301,13 +338,19 @@ export default function DishDetailScreen() {
       
       const data: DishWithRecipeDetail = await res.json();
       
-      // ✅ Sync favorite status với global store nếu có token
+      // ✅ CRITICAL: Sync favorite status với global store
       if (token && data.dish) {
-        const dishNumericId = parseInt(data.dish.id);
-        const globalStatus = getFavoriteStatus(dishNumericId);
+        const dishStringId = String(data.dish.id); // ✅ Use string for MongoDB ObjectId
+        const globalStatus = getFavoriteStatus(dishStringId);
+        
+        console.log(`🔍 [Detail] Dish ${dishStringId} - Global favorite: ${globalStatus}, API favorite: ${data.dish.isFavorite}`);
+        
+        // Use global store as source of truth
         if (globalStatus !== undefined) {
           data.dish.isFavorite = globalStatus;
-          console.log(`Loaded dish ${dishNumericId} with favorite status: ${globalStatus}`);
+          console.log(`✅ [Detail] Updated dish ${dishStringId} favorite to: ${globalStatus}`);
+        } else {
+          console.log(`⚠️ [Detail] No global favorite status for dish ${dishStringId}, using API value: ${data.dish.isFavorite}`);
         }
       }
       
@@ -681,16 +724,28 @@ export default function DishDetailScreen() {
   };
 
   // ===== Effects =====
-  // ✅ Enhanced useFocusEffect để sync favorite
+  // ✅ Enhanced useFocusEffect để sync favorite - SEQUENTIAL LOADING
   useFocusEffect(
     useCallback(() => {
-      console.log("Detail screen focused, refreshing data...");
+      console.log("🔄 [Detail] Screen focused, refreshing data...");
       
       // Reset view activity logging
       setViewActivityLogged(false);
       
-      // Fetch data
-      fetchDishData();
+      // ✅ CRITICAL: Fetch favorites FIRST, then fetch dish data
+      const loadData = async () => {
+        // Step 1: Fetch and sync favorites with global store
+        await fetchUserFavorites();
+        
+        // Step 2: Clear dish cache to force fresh fetch
+        const cacheKey = `dish:${dishId}`;
+        cacheDel(cacheKey);
+        
+        // Step 3: Fetch dish data (will use updated global store)
+        await fetchDishData();
+      };
+      
+      loadData();
 
       if (showComments && commentsLoaded) {
         // Clear cache để có data mới nhất
@@ -701,7 +756,7 @@ export default function DishDetailScreen() {
           checkUserRating();
         }
       }
-    }, [dishId, userId, showComments, commentsLoaded])
+    }, [dishId, userId, showComments, commentsLoaded, fetchUserFavorites])
   );
 
   // ✅ Log view activity when dish data is loaded

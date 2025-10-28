@@ -120,8 +120,10 @@ export default function FavoriteScreen() {
       if (!response.ok) {
         console.error(`❌ API call failed: ${response.status}`);
         
-        // Revert on error
-        setFavoriteDishes(prev => [...prev, currentDish].sort((a, b) => a.id - b.id));
+        // Revert on error - sort by string comparison
+        setFavoriteDishes(prev => [...prev, currentDish].sort((a, b) => 
+          String(a.id).localeCompare(String(b.id))
+        ));
         updateFavoriteStatus(dishId, true);
         throw new Error("Failed to toggle favorite");
       }
@@ -134,23 +136,8 @@ export default function FavoriteScreen() {
     }
   }, [favoriteDishes, updateFavoriteStatus]);
 
-  // ✅ Handle dish press
+  // ✅ Handle dish press (view logging handled by detail screen)
   const handleDishPress = useCallback(async (dish: Dish) => {
-    try {
-      const currentToken = useAuthStore.getState().token;
-      if (currentToken) {
-        await fetch(`${API_URL}/users/activity/viewed/${dish.id}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentToken}`,
-          },
-        });
-      }
-    } catch (err) {
-      console.error("Error logging view history:", err);
-    }
-    
     router.push(`/detail?id=${dish.id}`);
   }, [router]);
 

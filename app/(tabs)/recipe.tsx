@@ -186,25 +186,8 @@ const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
     }
   }, [router, allDishes, updateFavoriteStatus]);
 
-  // ✅ Handle dish press with view logging
+  // ✅ Handle dish press (view logging handled by detail screen)
   const handleDishPress = useCallback(async (dish: Dish) => {
-    try {
-      // Log view history if user is logged in
-      const currentToken = useAuthStore.getState().token;
-      if (currentToken) {
-        await fetch(`${API_URL}/users/activity/viewed/${dish.id}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentToken}`,
-          },
-        });
-      }
-    } catch (err) {
-      console.error("Error logging view history:", err);
-    }
-    
-    // Navigate to detail
     router.push(`/detail?id=${dish.id}`);
   }, [router]);
 
@@ -243,7 +226,7 @@ const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchIconContainer}>
-          <AntDesign name="search1" size={24} color="black" />
+          <AntDesign name="search" size={24} color="black" />
         </View>
         <TextInput
           style={styles.searchInput}

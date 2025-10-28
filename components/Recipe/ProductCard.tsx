@@ -7,8 +7,11 @@ type Props = {
   dish: Dish;
   itemsPerRow?: number;
   onPress: (dish: Dish) => void;
-  onPressFavorite: (id: number) => void;
+  onPressFavorite: (id: number | string) => void; // ✅ Accept both types
   isFavoriteLoading?: boolean; // New prop for loading state
+  showDeleteButton?: boolean; // Show delete button for user's own dishes
+  onPressDelete?: (dish: Dish) => void; // Delete handler
+  isDeleteLoading?: boolean; // Delete loading state
 };
 
 export const ProductCard = ({
@@ -17,6 +20,9 @@ export const ProductCard = ({
   onPress,
   onPressFavorite,
   isFavoriteLoading = false,
+  showDeleteButton = false,
+  onPressDelete,
+  isDeleteLoading = false,
 }: Props) => {
   // Safeguard for dish data
   if (!dish || !dish.id) {
@@ -115,12 +121,43 @@ export const ProductCard = ({
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <AntDesign
-                name={dish.isFavorite ? "heart" : "hearto"}
+                name={dish.isFavorite ? "heart" : "heart"}
                 size={20}
                 color={dish.isFavorite ? "#FF4757" : "#fff"}
               />
             )}
           </Pressable>
+
+          {/* Delete Button - only shown for user's own dishes */}
+          {showDeleteButton && (
+            <Pressable
+              style={[
+                styles.deleteButton,
+                isDeleteLoading && styles.deleteButtonLoading
+              ]}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (!isDeleteLoading && onPressDelete) {
+                  onPressDelete(dish);
+                }
+              }}
+              disabled={isDeleteLoading}
+              android_ripple={{ 
+                color: isDeleteLoading ? 'transparent' : 'rgba(255,255,255,0.3)', 
+                borderless: true 
+              }}
+            >
+              {isDeleteLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <AntDesign
+                  name="delete"
+                  size={20}
+                  color="#fff"
+                />
+              )}
+            </Pressable>
+          )}
 
           {/* Rating Badge - only show if rating exists */}
           {dishRating && (
@@ -139,7 +176,7 @@ export const ProductCard = ({
           
           <View style={styles.details}>
             <View style={styles.timeContainer}>
-              <AntDesign name="clockcircleo" size={14} color="#666" />
+              <AntDesign name="clock-circle" size={14} color="#666" />
               <Text style={styles.timeText}>{dishTime}</Text>
             </View>
             
@@ -191,6 +228,21 @@ const styles = StyleSheet.create({
   },
   favoriteButtonLoading: {
     backgroundColor: 'rgba(0,0,0,0.7)', // Darker background when loading
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(220, 53, 69, 0.8)', // Red background for delete
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  deleteButtonLoading: {
+    backgroundColor: 'rgba(220, 53, 69, 0.9)', // Darker red when loading
   },
   ratingBadge: {
     position: 'absolute',
