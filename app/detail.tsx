@@ -35,6 +35,7 @@ interface DishDetail {
   isFavorite?: boolean;
   creator_name?: string;
   creator_display_id?: string;
+  similarity_reason?: string; // ✅ NEW: Why this was recommended
 }
 
 interface RecipeDetail {
@@ -87,8 +88,14 @@ interface UserRatingStatus {
 
 export default function DishDetailScreen() {
   const { token } = useAuth();
-  const rawId = useLocalSearchParams().id;
+  const params = useLocalSearchParams();
+  const rawId = params.id;
   const dishId = Array.isArray(rawId) ? rawId[0] : (rawId as string | undefined);
+  
+  // ✅ NEW: Get similarity_reason from params
+  const similarity_reason = Array.isArray(params.similarity_reason) 
+    ? params.similarity_reason[0] 
+    : (params.similarity_reason as string | undefined);
 
   const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "";
   const PAGE_SIZE = 10;
@@ -306,6 +313,12 @@ export default function DishDetailScreen() {
             cached.dish.isFavorite = globalStatus;
           }
         }
+        
+        // ✅ NEW: Add similarity_reason from URL params to cached data
+        if (similarity_reason && cached.dish) {
+          cached.dish.similarity_reason = decodeURIComponent(similarity_reason);
+        }
+        
         setDishData(cached);
         setLoading(false);
         
@@ -352,6 +365,12 @@ export default function DishDetailScreen() {
         } else {
           console.log(`⚠️ [Detail] No global favorite status for dish ${dishStringId}, using API value: ${data.dish.isFavorite}`);
         }
+      }
+      
+      // ✅ NEW: Add similarity_reason from URL params
+      if (similarity_reason && data.dish) {
+        data.dish.similarity_reason = decodeURIComponent(similarity_reason);
+        console.log(`💡 [Detail] Added similarity_reason: ${data.dish.similarity_reason}`);
       }
       
       setDishData(data);
@@ -1076,6 +1095,14 @@ export default function DishDetailScreen() {
             </View>
           </View>
 
+          {/* ✅ NEW: Show why this was recommended */}
+          {dish.similarity_reason && (
+            <View style={styles.similarityReasonContainer}>
+              <Text style={styles.similarityReasonLabel}>💡 Vì sao gợi ý:</Text>
+              <Text style={styles.similarityReasonText}>{dish.similarity_reason}</Text>
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>Nguyên liệu</Text>
           <View style={styles.ingredientsContainer}>
             {(recipe?.ingredients || dish.ingredients).map((ingredient, i) => (
@@ -1368,6 +1395,29 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     color: "#856404", 
     fontWeight: "700" 
+  },
+
+  // ✅ NEW: Similarity reason display
+  similarityReasonContainer: {
+    marginTop: 16,
+    marginBottom: 24,
+    backgroundColor: "#e7f3ff",
+    borderLeftWidth: 4,
+    borderLeftColor: "#0066cc",
+    padding: 16,
+    borderRadius: 8,
+  },
+  similarityReasonLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0066cc",
+    marginBottom: 8,
+  },
+  similarityReasonText: {
+    fontSize: 16,
+    color: "#003d99",
+    fontWeight: "500",
+    lineHeight: 22,
   },
 
   // Titles

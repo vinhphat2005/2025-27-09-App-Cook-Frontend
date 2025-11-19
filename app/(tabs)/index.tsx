@@ -1,155 +1,204 @@
-import { Image } from "react-native";
-import { StyleSheet, Text, View, Alert, RefreshControl } from "react-native";
+// app/(tabs)/index.tsx — Quick inline fix (không cần sửa hook)
+import { Image, StyleSheet, Text, View, Alert, RefreshControl, TouchableOpacity, ActivityIndicator } from "react-native";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
 import { SearchBox } from "@/components/Search/SearchBox";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
-import { useEffect, useState, useCallback } from "react";
-import type { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
-import { fetchTodaySuggestions } from "@/lib/api";
-import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Dish } from "@/types/dish";
 import { useFocusEffect } from "@react-navigation/native";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL 
+// ---------- utils (inline) ----------
+function getBaseUrl(): string {
+  const env = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (env) return env;
+  return "http://192.168.1.13:8000"; // thay bằng IP LAN của máy bạn khi cần
+}
 
-// ✅ Simple cache for "matches" with TTL (5 minutes)
-let _cachedMatches: Dish[] = [];
-let _cachedAt = 0;
-const MATCHES_TTL_MS = 5 * 60 * 1000; // 5 phút
+async function fetchJSON(url: string, options: RequestInit = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} ${res.statusText} - ${text.slice(0, 200)}`);
+    }
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Invalid content-type: ${ct}. Body: ${text.slice(0, 200)}`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(id);
+  }
+}
 
+// map từ API RecommendationResponse -> Dish[] tối thiểu
+function mapRecToDishes(recRes: any): Dish[] {
+  console.log('🔍 mapRecToDishes input:', JSON.stringify(recRes, null, 2).slice(0, 500));
+  
+  const list = recRes?.recommendations ?? [];
+  console.log(`📊 Found ${list.length} recommendations`);
+  
+  if (list.length === 0) {
+    console.warn('⚠️ Empty recommendations array!');
+    return [];
+  }
+  
+  const mapped = list.map((it: any) => {
+    const dish = {
+      id: it.dish_id || it.id || 'UNKNOWN',
+      image: it.image_url || it.image || "",
+      time: it.cooking_time ? `${it.cooking_time} phút` : "—",
+      label: it.name || it.label || "No name",
+      ingredients: it.ingredients || [],
+      steps: it.steps || [],
+      star: Math.round((it.average_rating || it.rating || 0) * 10) / 10,
+      isFavorite: it.isFavorite || false,
+      level: (it.difficulty as Dish["level"]) || "easy",
+      similarity_reason: it.similarity_reason || undefined, // ✅ Pass similarity reason
+      reason: it.reason || undefined, // ✅ Also pass reason
+    };
+    console.log(`  ✅ Mapped dish: ${dish.label} (${dish.id}) - similarity: ${dish.similarity_reason}`);
+    return dish;
+  }) as Dish[];
+  
+  console.log(`✅ Successfully mapped ${mapped.length} dishes`);
+  return mapped;
+}
+
+// ---------- screen ----------
 export default function HomeScreen() {
   const router = useRouter();
-  const [matches, setMatches] = useState<Dish[]>([]);
-  const [todayDishes, setTodayDishes] = useState<Dish[]>([]);
+  const { token } = useAuthStore();
+  const { updateFavoriteStatus, setAllFavorites, getFavoriteStatus } = useFavoriteStore();
+
+  const API = useMemo(() => getBaseUrl(), []);
+  const REC = `${API}/api/recommendations`;
+
+  const [trending, setTrending] = useState<Dish[]>([]);
+  const [trendingOffset, setTrendingOffset] = useState(0);
+  const [trendingHasMore, setTrendingHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { token } = useAuthStore(); 
-  const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus, setAllFavorites } = useFavoriteStore();
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  // ✅ Sync dishes with global favorite updates
-  const syncWithFavoriteUpdates = useCallback(
-    (dishes: Dish[]) => {
-      return dishes.map((dish) => {
-        const globalStatus = getFavoriteStatus(dish.id);
-        return globalStatus !== undefined ? { ...dish, isFavorite: globalStatus } : dish;
-      });
+  const authHeaders = useMemo(() => {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) h.Authorization = `Bearer ${token}`;
+    return h;
+  }, [token]);
+
+  // fetch favorites -> sync global store
+  const fetchUserFavorites = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetchJSON(`${API}/users/me/favorites`, { headers: authHeaders });
+      const favoriteIds = (res || []).map((d: any) => String(d.id));
+      setAllFavorites(favoriteIds);
+      console.log(`📝 Synced ${favoriteIds.length} favorites to store`);
+    } catch (e) {
+      console.log("Failed to fetch favorites:", (e as Error).message);
+    }
+  }, [API, token, authHeaders, setAllFavorites]);
+
+  // track interaction
+  const trackInteraction = useCallback(
+    async (dishId: string | number, type: "view" | "like" | "cook" | "favorite") => {
+      try {
+        if (!token) return;
+        const q = new URLSearchParams({ dish_id: String(dishId), interaction_type: type });
+        await fetchJSON(`${REC}/interaction?${q.toString()}`, { method: "POST", headers: authHeaders });
+      } catch (e) {
+        console.log("trackInteraction fail:", (e as Error).message);
+      }
     },
-    [getFavoriteStatus]
+    [REC, authHeaders, token]
   );
 
-  // ✅ Fetch suggestions with caching + sync favorites
-  const fetchSuggestions = useCallback(async (showRefresh = false) => {
+  // fetch recs (with fallback)
+  // fetch recs (with fallback)
+  const fetchRecs = useCallback(
+    async (showRefresh = false) => {
+      try {
+        showRefresh ? setRefreshing(true) : setLoading(true);
+        console.log(`\n🔄 === FETCH RECS START (refresh=${showRefresh}) ===`);
+
+        // ✅ Chỉ load trending - không gợi ý cá nhân hóa
+        try {
+          console.log(`\n📈 Fetching dishes from: ${REC}/trending?days=7&limit=6&offset=0&min_rating=0`);
+          const tr = await fetchJSON(`${REC}/trending?days=7&limit=6&offset=0&min_rating=0`);
+          console.log(`✅ Dishes response:`, JSON.stringify(tr, null, 2).slice(0, 300));
+          const trendingDishes = mapRecToDishes(tr);
+          setTrending(trendingDishes);
+          setTrendingOffset(0);
+          setTrendingHasMore(tr.metadata?.has_more ?? false);
+          console.log(`✅ Set ${trendingDishes.length} dishes to state`);
+        } catch (e) {
+          console.log("❌ dishes fail:", (e as Error).message);
+          setTrending([]);
+          setTrendingHasMore(false);
+        }
+        
+        console.log(`\n✅ === FETCH RECS COMPLETE ===\n`);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [REC]
+  );
+
+  // ✅ NEW: Load more trending dishes (pagination)
+  const loadMoreTrending = useCallback(async () => {
+    if (!trendingHasMore || loadingMore) {
+      console.log("⚠️ No more data or already loading");
+      return;
+    }
+
     try {
-      if (showRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      // 1) Use cache for "matches" if still valid -> display faster
-      const now = Date.now();
-      if (_cachedMatches.length && now - _cachedAt < MATCHES_TTL_MS && !showRefresh) {
-        console.log("Using cached matches data");
-        setMatches(syncWithFavoriteUpdates(_cachedMatches));
-      }
-
-      // 2) Always fetch new data for updates
-      const matchData = await fetchTodaySuggestions({ userId: "1" });
+      setLoadingMore(true);
+      const newOffset = trendingOffset + 6;  // ✅ Load 6 more (was 5)
       
-      // ✅ Use same data for "today suggestions" but slice/shuffle for variety
-      const todayDishesData = [...matchData]
-        .sort(() => Math.random() - 0.5) // Shuffle for variety
-        .slice(0, 6); // Take first 6 items
-
-      if (token) {
-        // Update favorite status for logged in users
-        const [updatedMatches, updatedTodayDishes] = await Promise.all([
-          updateDishesWithFavoriteStatus(matchData),
-          updateDishesWithFavoriteStatus(todayDishesData),
-        ]);
-
-        const syncedMatches = syncWithFavoriteUpdates(updatedMatches);
-        const syncedToday = syncWithFavoriteUpdates(updatedTodayDishes);
-
-        setMatches(syncedMatches);
-        setTodayDishes(syncedToday);
-
-        // 3) Update cache with latest data (don't cache user-specific data)
-        _cachedMatches = updatedMatches;
-        _cachedAt = Date.now();
-      } else {
-        // Not logged in: keep isFavorite=false
-        const anonymousMatches = matchData.map((d) => ({ ...d, isFavorite: false }));
-        const anonymousTodayDishes = todayDishesData.map((d) => ({ ...d, isFavorite: false }));
-        
-        setMatches(syncWithFavoriteUpdates(anonymousMatches));
-        setTodayDishes(syncWithFavoriteUpdates(anonymousTodayDishes));
-
-        // Update cache
-        _cachedMatches = anonymousMatches;
-        _cachedAt = Date.now();
-      }
-    } catch (err) {
-      console.error("Error fetching suggestions:", err);
+      console.log(`\n📈 Loading more dishes: offset=${newOffset}`);
+      const tr = await fetchJSON(`${REC}/trending?days=7&limit=6&offset=${newOffset}&min_rating=0`);
+      
+      const moreDishes = mapRecToDishes(tr);
+      console.log(`✅ Loaded ${moreDishes.length} more dishes`);
+      
+      // Append to existing trending
+      setTrending(prev => [...prev, ...moreDishes]);
+      setTrendingOffset(newOffset);
+      setTrendingHasMore(tr.metadata?.has_more ?? false);
+      
+      console.log(`📊 Total dishes now: ${trending.length + moreDishes.length}`);
+    } catch (e) {
+      console.error("❌ Error loading more dishes:", (e as Error).message);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoadingMore(false);
     }
-  }, [token, syncWithFavoriteUpdates]);
+  }, [REC, trendingOffset, trendingHasMore, loadingMore, trending.length]);
 
-  // ✅ Sync UI when favoriteUpdates change
+  // initial load
   useEffect(() => {
-    if (Object.keys(favoriteUpdates).length > 0) {
-      setMatches((prev) => syncWithFavoriteUpdates(prev));
-      setTodayDishes((prev) => syncWithFavoriteUpdates(prev));
-    }
-  }, [favoriteUpdates, syncWithFavoriteUpdates]);
+    fetchRecs(false);
+    fetchUserFavorites();
+  }, [fetchRecs, fetchUserFavorites]);
 
-  // ✅ Fetch user favorites from API to sync global store
-  const fetchUserFavorites = useCallback(async () => {
-    if (!token || token === "null" || token === "undefined") return;
-
-    try {
-      const res = await fetch(`${API_URL}/users/me/favorites`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-
-      if (res.ok) {
-        const favoriteDishes = await res.json();
-        console.log(`📥 [Index] Fetched ${favoriteDishes.length} favorites from API`);
-        
-        // ✅ Replace global store with fresh favorites from API (as strings)
-        const favoriteIds = favoriteDishes.map((dish: any) => String(dish.id));
-        
-        setAllFavorites(favoriteIds);
-        console.log(`📝 [Index] Updated global store with ${favoriteIds.length} favorites:`, favoriteIds);
-        
-        // Sync UI with updated global store
-        setMatches((prev) => syncWithFavoriteUpdates(prev));
-        setTodayDishes((prev) => syncWithFavoriteUpdates(prev));
-      }
-    } catch (err) {
-      console.log("Failed to fetch favorites:", err);
-    }
-  }, [token, setAllFavorites, syncWithFavoriteUpdates]);
-
-  // ✅ Refresh when screen comes into focus (fetch latest favorites + sync)
+  // refetch favorites when screen focused
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 [Index] Screen focused - fetching latest favorites");
-      fetchUserFavorites(); // Fetch from API to sync global store
+      fetchUserFavorites();
     }, [fetchUserFavorites])
   );
 
-  // ✅ Toggle favorite (optimistic UI + sync global store)
+  // toggle favorite
   const toggleFavorite = useCallback(
-    async (dishId: number | string) => { // ✅ Accept both types
+    async (dishId: number | string) => {
       try {
         const currentToken = useAuthStore.getState().token;
         if (!currentToken) {
@@ -158,141 +207,344 @@ export default function HomeScreen() {
           return;
         }
 
-        const dishStringId = String(dishId); // ✅ Convert to string for consistency
+        const dishStringId = String(dishId);
+        const currentStatus = getFavoriteStatus(dishStringId);
+        const newFavoriteStatus = !currentStatus;
 
-        // Get current favorite status
-        const currentDish = [...matches, ...todayDishes].find((d) => String(d.id) === dishStringId);
-        const newFavoriteStatus = !currentDish?.isFavorite;
-
-        console.log(`🎯 [Index] Toggling favorite for dish ${dishStringId}: ${currentDish?.isFavorite} → ${newFavoriteStatus}`);
-
-        // Optimistic update
-        setMatches((prev) =>
-          prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: newFavoriteStatus } : dish))
-        );
-        setTodayDishes((prev) =>
-          prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: newFavoriteStatus } : dish))
-        );
-
-        // Update global store with string key
+        // optimistic
         updateFavoriteStatus(dishStringId, newFavoriteStatus);
-        console.log(`📝 [Index] Updated global store: dish ${dishStringId} = ${newFavoriteStatus}`);
+        await trackInteraction(dishStringId, newFavoriteStatus ? "favorite" : "like");
 
-        // Call API
-        const response = await fetch(`${API_URL}/dishes/${dishStringId}/toggle-favorite`, {
+        const resp = await fetch(`${API}/dishes/${dishStringId}/toggle-favorite`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentToken}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentToken}` },
         });
 
-        if (!response.ok) {
-          // Revert optimistic update on error
-          setMatches((prev) =>
-            prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: !newFavoriteStatus } : dish))
-          );
-          setTodayDishes((prev) =>
-            prev.map((dish) => (String(dish.id) === dishStringId ? { ...dish, isFavorite: !newFavoriteStatus } : dish))
-          );
-          updateFavoriteStatus(dishStringId, !newFavoriteStatus);
-          throw new Error("Failed to toggle favorite");
+        if (!resp.ok) {
+          updateFavoriteStatus(dishStringId, !newFavoriteStatus); // revert
+          throw new Error(`Failed to toggle favorite ${resp.status}`);
         }
-
-        console.log(`✅ [Index] Successfully toggled favorite for dish ${dishStringId}`);
-      } catch (err: any) {
-        console.error("❌ [Index] Error toggling favorite:", err);
+      } catch (e: any) {
+        console.error("toggleFavorite error:", e);
         Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
       }
     },
-    [router, matches, todayDishes, updateFavoriteStatus]
+    [API, router, getFavoriteStatus, updateFavoriteStatus, trackInteraction]
   );
 
-  // ✅ Handle dish press: navigate to detail (view logging handled by detail screen)
+  // press dish
   const handleDishPress = useCallback(
     async (dish: Dish) => {
-      router.push(`/detail?id=${dish.id}`);
+      if (token) await trackInteraction(dish.id, "view");
+      router.push(`/detail?id=${dish.id.toString()}`);
     },
-    [router]
+    [router, token, trackInteraction]
   );
 
-  // ✅ Initial data fetch
-  useEffect(() => {
-    fetchSuggestions();
-  }, [fetchSuggestions]);
-
-  // ✅ Pull to refresh handler
+  // pull to refresh
   const onRefresh = useCallback(() => {
-    fetchSuggestions(true);
-  }, [fetchSuggestions]);
+    fetchRecs(true);
+  }, [fetchRecs]);
 
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#f5b402", dark: "#f5b402" }}
-      includeBottomTab={true}
-      headerImage={<Image source={require("@/assets/images/logo.png")} style={styles.reactLogo} />}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      includeBottomTab
+      headerImage={
+        <Image
+          source={require("@/assets/images/logo.png")}
+          style={styles.reactLogo}
+        />
       }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>Nhập nguyên liệu bạn có:</Text>
-
       <SearchBox />
 
-      {/* Gợi ý món phù hợp */}
+      {/* Feed - Món ăn mới nhất, rating cao (Facebook-style) */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gợi ý món phù hợp</Text>
-        <ProductList
-          dishes={matches}
-          onPress={handleDishPress}
-          onPressFavorite={toggleFavorite}
-          itemsPerRow={2}
-          loading={loading}
-          emptyMessage="Không có gợi ý món ăn phù hợp"
-          emptySubMessage="Hãy thử nhập nguyên liệu để tìm món ăn!"
-        />
-      </View>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>🔥 Feed Mới Nhất</Text>
+          <Text style={styles.sectionSubtitle}>Các bài viết mới nhất có đánh giá cao</Text>
+        </View>
+        
+        {/* Facebook-style feed - 1 item per row */}
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#f5b402" />
+            <Text style={styles.loadingText}>Đang tải...</Text>
+          </View>
+        ) : trending.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>Hiện tại không có món ăn nào</Text>
+            <Text style={styles.emptySubText}>Hãy thử lại sau!</Text>
+          </View>
+        ) : (
+          <View style={styles.feedContainer}>
+            {trending.map((dish) => (
+              <View key={`feed-${dish.id}`} style={styles.feedItem}>
+                {/* Header - Tên và nút yêu thích */}
+                <View style={styles.feedItemHeader}>
+                  <Text style={styles.feedItemTitle} numberOfLines={2}>{dish.label}</Text>
+                  <TouchableOpacity 
+                    onPress={() => toggleFavorite(dish.id)}
+                    style={styles.feedItemFavoriteBtn}
+                  >
+                    <Text style={styles.favoriteIcon}>
+                      {getFavoriteStatus(String(dish.id)) ? "❤️" : "🤍"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-      {/* Gợi ý món ăn hôm nay */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gợi ý món ăn hôm nay</Text>
-        <ProductList
-          dishes={todayDishes}
-          onPress={handleDishPress}
-          onPressFavorite={toggleFavorite}
-          itemsPerRow={2}
-          loading={loading}
-          emptyMessage="Không có gợi ý món ăn hôm nay"
-          emptySubMessage="Hãy thử nhập nguyên liệu để tìm món ăn!"
-        />
+                {/* Image */}
+                <TouchableOpacity 
+                  onPress={() => handleDishPress(dish)}
+                  style={styles.feedItemImageContainer}
+                >
+                  <Image
+                    source={{ uri: dish.image || "https://via.placeholder.com/400x300" }}
+                    style={styles.feedItemImage}
+                  />
+                </TouchableOpacity>
+
+                {/* Info Section */}
+                <View style={styles.feedItemInfoSection}>
+                  {/* Meta: Rating, Time, Level */}
+                  <View style={styles.feedItemMetaRow}>
+                    <View style={styles.metaItem}>
+                      <Text style={styles.metaIcon}>⭐</Text>
+                      <Text style={styles.metaText}>{dish.star ?? 0} ({(dish.star ?? 0) > 3.5 ? "Tốt" : "OK"})</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Text style={styles.metaIcon}>⏱️</Text>
+                      <Text style={styles.metaText}>{dish.time}</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Text style={styles.metaIcon}>🎯</Text>
+                      <Text style={styles.metaText}>{dish.level === "easy" ? "Dễ" : dish.level === "medium" ? "Trung bình" : "Khó"}</Text>
+                    </View>
+                  </View>
+
+                  {/* Ingredients */}
+                  <View style={styles.ingredientsSection}>
+                    <Text style={styles.sectionLabel}>📦 Nguyên liệu:</Text>
+                    <Text style={styles.ingredientsText}>
+                      {dish.ingredients?.slice(0, 5).join(", ") || "Không có thông tin"}
+                      {dish.ingredients && dish.ingredients.length > 5 ? "..." : ""}
+                    </Text>
+                  </View>
+
+                  {/* Action Button */}
+                  <TouchableOpacity 
+                    onPress={() => handleDishPress(dish)}
+                    style={styles.viewDetailButton}
+                  >
+                    <Text style={styles.viewDetailButtonText}>👀 Xem chi tiết</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+        
+        {/* ✅ Load More Button */}
+        {trendingHasMore && (
+          <TouchableOpacity
+            onPress={loadMoreTrending}
+            disabled={loadingMore}
+            style={[styles.loadMoreButton, loadingMore && styles.loadMoreButtonDisabled]}
+          >
+            {loadingMore ? (
+              <>
+                <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.loadMoreButtonText}>Đang tải...</Text>
+              </>
+            ) : (
+              <Text style={styles.loadMoreButtonText}>📥 Tải thêm món</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </ParallaxScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
+  reactLogo: { height: 178, width: 290, bottom: 0, left: 0, position: "absolute" },
+  title: { fontSize: 28, fontWeight: "600", color: "#333", marginBottom: 16, textAlign: "center" },
+  section: { marginTop: 24 },
+  sectionHeader: { marginBottom: 12, marginLeft: 12 },
+  sectionTitle: { fontSize: 22, fontWeight: "600", color: "#333" },
+  sectionSubtitle: { fontSize: 14, color: "#666", marginTop: 4 },
+  
+  // ✅ Feed Container - Facebook style list
+  feedContainer: {
+    paddingHorizontal: 8,
   },
-  title: {
+  feedItem: {
+    backgroundColor: "#fff",
+    marginVertical: 10,
+    marginHorizontal: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  // Header with title and favorite button
+  feedItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  feedItemTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#222",
+    flex: 1,
+    marginRight: 8,
+  },
+  feedItemFavoriteBtn: {
+    padding: 8,
+  },
+  favoriteIcon: {
     fontSize: 28,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 16,
-    textAlign: "center",
   },
-  section: {
-    marginTop: 24,
+
+  // Image container
+  feedItemImageContainer: {
+    width: "100%",
+    height: 280,
+    backgroundColor: "#f5f5f5",
   },
-  sectionTitle: {
-    fontSize: 22,
+  feedItemImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  // Info section
+  feedItemInfoSection: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+
+  // Meta row: rating, time, level
+  feedItemMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  metaIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  metaText: {
+    fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: "#555",
+  },
+
+  // Ingredients section
+  ingredientsSection: {
     marginBottom: 12,
-    marginLeft: 12,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#222",
+    marginBottom: 6,
+  },
+  ingredientsText: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+    fontWeight: "500",
+  },
+
+  // View detail button
+  viewDetailButton: {
+    backgroundColor: "#f5b402",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  viewDetailButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  // Old styles (keep for compatibility)
+  feedItemContent: {
+    flex: 1,
+    flexDirection: "row",
+    marginRight: 12,
+  },
+
+  // ✅ Empty & Loading states
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "500",
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  // ✅ Load More Button Styles
+  loadMoreButton: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "#dd3300",
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadMoreButtonDisabled: {
+    opacity: 0.6,
+  },
+  loadMoreButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });
