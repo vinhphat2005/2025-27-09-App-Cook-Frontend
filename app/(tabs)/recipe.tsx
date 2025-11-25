@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
 import { normalizeDishList } from "@/types/dish";
 import type { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
+import { isWeb } from "@/styles/responsive";
 
 import { 
   Pressable, 
@@ -288,44 +289,57 @@ const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
 
 const styles = StyleSheet.create({
   reactLogo: {
-    height: 178,
-    width: 290,
+    height: isWeb ? 150 : 178,
+    width: isWeb ? 240 : 290,
     bottom: 0,
     left: 0,
     position: "absolute",
   },
   headerSection: {
-    marginBottom: 16,
+    marginBottom: isWeb ? 24 : 16,
+    alignItems: isWeb ? 'center' : 'flex-start',
   },
   title: {
-    fontSize: 32,
+    fontSize: isWeb ? 40 : 32,
     fontWeight: "bold",
     marginBottom: 4,
     color: "#dd3300",
+    textAlign: isWeb ? 'center' : 'left',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: isWeb ? 18 : 16,
     color: "#666",
     fontWeight: "500",
+    textAlign: isWeb ? 'center' : 'left',
   },
   searchInput: {
     flex: 1,
     borderRadius: 10,
-    padding: 10,
+    padding: isWeb ? 12 : 10,
     backgroundColor: "white",
+    fontSize: isWeb ? 16 : 14,
+    ...(isWeb && {
+      outlineStyle: 'none' as any,
+    }),
   },
   searchContainer: {
     position: "relative",
     width: "100%",
+    maxWidth: isWeb ? 600 : '100%',
+    alignSelf: 'center' as const,
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
     borderWidth: 1,
-    borderColor: "gray",
+    borderColor: isWeb ? "#ccc" : "gray",
     borderRadius: 30,
     overflow: "hidden",
-    marginBottom: 20,
+    marginBottom: isWeb ? 28 : 20,
+    backgroundColor: 'white',
+    ...(isWeb && {
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    }),
   },
   searchClearButton: {
     position: "absolute",

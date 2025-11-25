@@ -7,8 +7,9 @@ import { normalizeDishList } from "@/types/dish";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
-import { StyleSheet, Text, Alert, RefreshControl } from "react-native";
+import { StyleSheet, Text, Alert, RefreshControl, Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { isWeb } from "@/styles/responsive";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -19,7 +20,7 @@ export default function FavoriteScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuthStore();
-  const { updateFavoriteStatus, getFavoriteStatus } = useFavoriteStore();
+  const { updateFavoriteStatus, getFavoriteStatus, favoriteUpdates } = useFavoriteStore();
 
   // ✅ Fetch favorite dishes - simplified version
   const fetchFavoriteDishes = useCallback(async (showRefresh = false) => {
@@ -156,11 +157,26 @@ export default function FavoriteScreen() {
     }
   }, [token]); // ✅ Remove fetchFavoriteDishes from dependencies
 
-  // ✅ Simplified focus effect - only sync with global store, don't refetch
+  // ✅ Web: Listen to favoriteUpdates changes and refetch
+  useEffect(() => {
+    if (isWeb && token && Object.keys(favoriteUpdates).length > 0) {
+      console.log("🌐 Web: Favorite updates detected, refetching...");
+      console.log("📊 Updated favorites:", favoriteUpdates);
+      
+      // Delay a bit to ensure backend is updated
+      const timer = setTimeout(() => {
+        console.log("🔄 Refetching favorite dishes from API...");
+        fetchFavoriteDishes(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [favoriteUpdates, token, isWeb, fetchFavoriteDishes]);
+
+  // ✅ Mobile: Focus effect - only sync with global store, don't refetch
   useFocusEffect(
     useCallback(() => {
-      if (token && favoriteDishes.length > 0) {
-        console.log("🔄 FavoriteScreen came into focus - syncing favorite status");
+      if (!isWeb && token && favoriteDishes.length > 0) {
+        console.log("📱 Mobile: FavoriteScreen came into focus - syncing favorite status");
         
         // Only sync favorite status from global store, don't refetch
         setFavoriteDishes(prev => 
@@ -172,7 +188,7 @@ export default function FavoriteScreen() {
           }).filter(dish => dish.isFavorite) // Remove dishes that are no longer favorites
         );
       }
-    }, [token, getFavoriteStatus]) // ✅ Remove loading/refreshing dependencies
+    }, [token, getFavoriteStatus, favoriteDishes.length, isWeb]) // ✅ Remove loading/refreshing dependencies
   );
 
   // ✅ Debug log - only when dishes change
@@ -277,16 +293,16 @@ export default function FavoriteScreen() {
 
 const styles = StyleSheet.create({
   reactLogo: {
-    height: 178,
-    width: 290,
+    height: isWeb ? 150 : 178,
+    width: isWeb ? 240 : 290,
     bottom: 0,
     left: 0,
     position: "absolute",
   },
   title: {
-    fontSize: 32,
+    fontSize: isWeb ? 40 : 32,
     fontWeight: "bold",
-    marginBottom: 16,
+    marginBottom: isWeb ? 24 : 16,
     color: "#dd3300",
     textAlign: "center",
   },

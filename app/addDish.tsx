@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getDifficultyDisplay, mapDifficultyToEnglish } from '@/types/dish';
+import { isWeb } from '@/styles/responsive';
 
 export default function AddDish() {
   const { user, token, requireAuth } = useAuth();
@@ -26,11 +27,11 @@ export default function AddDish() {
   // Form state
   const [dishName, setDishName] = useState('');
   const [cookingTime, setCookingTime] = useState('');
-  const [ingredients, setIngredients] = useState(['']);
-  const [instructions, setInstructions] = useState(['']);
-  const [image, setImage] = useState(null);
-  const [imageBase64, setImageBase64] = useState(null);
-  const [imageMime, setImageMime] = useState(null);
+  const [ingredients, setIngredients] = useState<string[]>(['']);
+  const [instructions, setInstructions] = useState<string[]>(['']);
+  const [image, setImage] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMime, setImageMime] = useState<string | null>(null);
   
   // Recipe additional fields
   const [recipeDescription, setRecipeDescription] = useState('');
@@ -40,8 +41,48 @@ export default function AddDish() {
     requireAuth();
   }, []);
 
+  // ✅ Web-optimized image picker
+  const pickImageWeb = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        Alert.alert('Lỗi', 'Kích thước ảnh không được vượt quá 5MB!');
+        return;
+      }
+
+      // Read file as base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const base64Data = base64String.split(',')[1]; // Remove data:image/...;base64, prefix
+        
+        setImage(base64String); // For preview
+        setImageBase64(base64Data);
+        setImageMime(file.type || 'image/jpeg');
+        
+        console.log('Image selected (web):', {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          base64Length: base64Data.length
+        });
+      };
+      
+      reader.readAsDataURL(file);
+    };
+    
+    input.click();
+  };
+
   // Enhanced image picker với compression tốt hơn
-  const pickImage = async () => {
+  const pickImageMobile = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (permissionResult.granted === false) {
@@ -60,15 +101,24 @@ export default function AddDish() {
     if (!result.canceled) {
       const selectedImage = result.assets[0];
       setImage(selectedImage.uri);
-      setImageBase64(selectedImage.base64);
+      setImageBase64(selectedImage.base64 || null);
       setImageMime(selectedImage.mimeType || 'image/jpeg');
       
       // Log để debug
-      console.log('Image selected:', {
+      console.log('Image selected (mobile):', {
         uri: selectedImage.uri,
         mimeType: selectedImage.mimeType,
         base64Length: selectedImage.base64?.length || 0
       });
+    }
+  };
+
+  // ✅ Platform-aware image picker
+  const pickImage = () => {
+    if (Platform.OS === 'web') {
+      pickImageWeb();
+    } else {
+      pickImageMobile();
     }
   };
 
@@ -191,6 +241,9 @@ export default function AddDish() {
         return; 
       }
 
+      console.log('📤 Sending request to:', `${API_URL}/dishes/with-recipe`);
+      console.log('📤 With authorization token:', token ? 'Present' : 'Missing');
+
       const response = await fetch(`${API_URL}/dishes/with-recipe`, {
         method: 'POST',
         headers: {
@@ -200,19 +253,47 @@ export default function AddDish() {
         body: JSON.stringify(dishData),
       });
 
+      console.log('📥 Response status:', response.status, response.statusText);
+
       const result = await response.json();
+      console.log('📥 Response data:', result);
       
       if (response.ok) {
-        console.log('Dish created successfully:', result);
-        Alert.alert(
-          'Thành công! 🎉', 
-          result.message || 'Tạo món ăn và công thức thành công!',
-          [
-            { text: 'OK', onPress: () => router.back() }
-          ]
-        );
+        console.log('✅ Dish created successfully!');
+        
+        // Reset form
+        setDishName('');
+        setCookingTime('');
+        setIngredients(['']);
+        setInstructions(['']);
+        setImage(null);
+        setImageBase64(null);
+        setImageMime(null);
+        setRecipeDescription('');
+        setDifficulty('Dễ');
+        
+        // Show success message
+        if (Platform.OS === 'web') {
+          // On web, show alert and navigate immediately
+          alert('✅ Thành công! Món ăn và công thức đã được tạo thành công!');
+          router.replace('/(tabs)/profile');
+        } else {
+          // On mobile, use Alert with callback
+          Alert.alert(
+            'Thành công! 🎉', 
+            'Món ăn và công thức đã được tạo thành công!',
+            [
+              { 
+                text: 'Xem món ăn', 
+                onPress: () => {
+                  router.replace('/(tabs)/profile');
+                }
+              }
+            ]
+          );
+        }
       } else {
-        console.error('Server error:', result);
+        console.error('❌ Server error:', result);
         // Handle specific error cases
         let errorMessage = 'Có lỗi xảy ra!';
         
@@ -223,20 +304,24 @@ export default function AddDish() {
         } else if (response.status === 500) {
           errorMessage = 'Lỗi server. Vui lòng thử lại sau!';
         } else if (result.detail) {
-          errorMessage = result.detail;
+          errorMessage = typeof result.detail === 'string' 
+            ? result.detail 
+            : JSON.stringify(result.detail);
         }
         
         Alert.alert('Lỗi', errorMessage);
       }
-    } catch (error) {
-      console.error('Create dish error:', error);
+    } catch (error: any) {
+      console.error('❌ Create dish error:', error);
       
       let errorMessage = 'Không thể kết nối đến server!';
       
-      if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
+      if (error?.name === 'TypeError' && error?.message?.includes('Network request failed')) {
         errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối internet!';
-      } else if (error.name === 'TimeoutError') {
+      } else if (error?.name === 'TimeoutError') {
         errorMessage = 'Yêu cầu quá thời gian. Vui lòng thử lại!';
+      } else if (error?.message) {
+        errorMessage = error.message;
       }
       
       Alert.alert('Lỗi kết nối', errorMessage);
@@ -245,7 +330,7 @@ export default function AddDish() {
     }
   };
 
-  // Camera option
+  // Camera option (mobile only)
   const takePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     
@@ -264,13 +349,20 @@ export default function AddDish() {
     if (!result.canceled) {
       const selectedImage = result.assets[0];
       setImage(selectedImage.uri);
-      setImageBase64(selectedImage.base64);
+      setImageBase64(selectedImage.base64 || null);
       setImageMime(selectedImage.mimeType || 'image/jpeg');
     }
   };
 
   // Show image picker options
   const showImagePicker = () => {
+    // ✅ On web, directly open file picker
+    if (Platform.OS === 'web') {
+      pickImage();
+      return;
+    }
+
+    // On mobile, show options for camera or library
     Alert.alert(
       'Chọn ảnh',
       'Bạn muốn chọn ảnh từ đâu?',
@@ -315,8 +407,15 @@ export default function AddDish() {
               ) : (
                 <View style={styles.imagePlaceholder}>
                   <Ionicons name="camera" size={40} color="#999" />
-                  <Text style={styles.imagePlaceholderText}>Chọn ảnh</Text>
-                  <Text style={styles.imageHint}>Nhấn để chọn từ thư viện hoặc chụp ảnh</Text>
+                  <Text style={styles.imagePlaceholderText}>
+                    {Platform.OS === 'web' ? 'Chọn ảnh từ máy tính' : 'Chọn ảnh'}
+                  </Text>
+                  <Text style={styles.imageHint}>
+                    {Platform.OS === 'web' 
+                      ? 'Nhấn để chọn file ảnh (JPG, PNG, tối đa 5MB)'
+                      : 'Nhấn để chọn từ thư viện hoặc chụp ảnh'
+                    }
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -500,11 +599,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    padding: 20,
-    paddingBottom: 100, // Extra padding for keyboard
+    padding: isWeb ? 32 : 20,
+    paddingBottom: 100,
+    maxWidth: isWeb ? 800 : '100%',
+    alignSelf: 'center' as const,
+    width: '100%',
   },
   title: {
-    fontSize: 24,
+    fontSize: isWeb ? 32 : 24,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 20,
@@ -529,10 +631,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 44, // Minimum touch target
+    borderRadius: isWeb ? 12 : 8,
+    padding: isWeb ? 14 : 12,
+    fontSize: isWeb ? 16 : 16,
+    minHeight: 44,
+    ...(isWeb && {
+      outlineStyle: 'none' as any,
+    }),
   },
   textArea: {
     height: 80,
@@ -630,27 +735,34 @@ const styles = StyleSheet.create({
   imageUpload: {
     backgroundColor: 'white',
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: isWeb ? '#007AFF' : '#ddd',
     borderStyle: 'dashed',
-    borderRadius: 8,
-    height: 200,
+    borderRadius: isWeb ? 12 : 8,
+    height: isWeb ? 250 : 200,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    ...(isWeb && {
+      cursor: 'pointer' as any,
+      transition: 'all 0.2s ease',
+    }),
   },
   imagePlaceholder: {
     alignItems: 'center',
+    padding: isWeb ? 20 : 0,
   },
   imagePlaceholderText: {
-    color: '#999',
-    fontSize: 16,
+    color: isWeb ? '#007AFF' : '#999',
+    fontSize: isWeb ? 18 : 16,
     marginTop: 8,
+    fontWeight: isWeb ? '600' : 'normal',
   },
   imageHint: {
     color: '#666',
-    fontSize: 12,
+    fontSize: isWeb ? 14 : 12,
     marginTop: 4,
     textAlign: 'center',
+    paddingHorizontal: isWeb ? 20 : 0,
   },
   uploadedImage: {
     width: '100%',
@@ -701,8 +813,8 @@ const styles = StyleSheet.create({
   },
   createButton: {
     backgroundColor: '#dc502e',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: isWeb ? 16 : 12,
+    paddingVertical: isWeb ? 18 : 16,
     alignItems: 'center',
     marginTop: 20,
     shadowColor: '#000',
@@ -713,14 +825,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    minHeight: 52,
+    minHeight: isWeb ? 56 : 52,
+    ...(isWeb && {
+      cursor: 'pointer' as any,
+      transition: 'all 0.2s ease',
+    }),
   },
   createButtonDisabled: {
     backgroundColor: '#ccc',
+    ...(isWeb && {
+      cursor: 'not-allowed' as any,
+    }),
   },
   createButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: isWeb ? 20 : 18,
     fontWeight: 'bold',
   },
   loadingContainer: {

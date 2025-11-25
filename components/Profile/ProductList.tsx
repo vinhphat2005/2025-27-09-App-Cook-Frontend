@@ -1,6 +1,7 @@
 import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { StyleSheet, View, Text, ActivityIndicator } from "react-native";
 import { ProductCard } from "../Recipe/ProductCard";
+import { isWeb } from "@/styles/responsive";
 
 type Props = {
   dishes: Dish[];
@@ -79,37 +80,42 @@ export const ProductList = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    maxWidth: isWeb ? 1200 : '100%',
+    alignSelf: 'center' as const,
+    width: '100%',
   },
   dishGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 6,
-    paddingTop: 8,
+    paddingHorizontal: isWeb ? 12 : 6,
+    paddingTop: isWeb ? 12 : 8,
+    gap: isWeb ? 16 : 0,
+    justifyContent: isWeb ? 'flex-start' : 'flex-start',
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 60,
+    paddingVertical: isWeb ? 80 : 60,
     paddingHorizontal: 20,
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 16,
+    fontSize: isWeb ? 18 : 16,
     color: "#666",
     fontWeight: "500",
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: isWeb ? 22 : 18,
     fontWeight: "600",
     color: "#666",
     textAlign: "center",
     marginBottom: 8,
   },
   emptySubText: {
-    fontSize: 14,
+    fontSize: isWeb ? 17 : 14,
     color: "#999",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: isWeb ? 24 : 20,
   },
 });

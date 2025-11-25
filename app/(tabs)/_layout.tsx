@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
+import { isWeb } from "@/styles/responsive";
 
 import { AuthGuard } from "@/components/AuthGuard";
 import { HapticTab } from "@/components/HapticTab";
@@ -17,11 +18,24 @@ export default function TabLayout() {
           },
           headerShown: false,
           tabBarActiveTintColor: "#dd3300",
+          tabBarInactiveTintColor: "#666",
           tabBarButton: HapticTab,
           tabBarStyle: Platform.select({
             ios: {
               // Use a transparent background on iOS to show the blur effect
               position: "absolute",
+            },
+            web: {
+              height: 60,
+              paddingBottom: 8,
+              paddingTop: 8,
+              borderTopWidth: 1,
+              borderTopColor: "#e0e0e0",
+              backgroundColor: "white",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
             },
             default: {},
           }),

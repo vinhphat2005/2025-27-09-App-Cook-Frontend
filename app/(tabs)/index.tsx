@@ -9,6 +9,7 @@ import { useFavoriteStore } from "@/store/favoriteStore";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Dish } from "@/types/dish";
 import { useFocusEffect } from "@react-navigation/native";
+import { isWeb } from "@/styles/responsive";
 
 // ---------- utils (inline) ----------
 function getBaseUrl(): string {
@@ -370,28 +371,57 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  reactLogo: { height: 178, width: 290, bottom: 0, left: 0, position: "absolute" },
-  title: { fontSize: 28, fontWeight: "600", color: "#333", marginBottom: 16, textAlign: "center" },
-  section: { marginTop: 24 },
-  sectionHeader: { marginBottom: 12, marginLeft: 12 },
-  sectionTitle: { fontSize: 22, fontWeight: "600", color: "#333" },
-  sectionSubtitle: { fontSize: 14, color: "#666", marginTop: 4 },
+  reactLogo: { 
+    height: isWeb ? 150 : 178, 
+    width: isWeb ? 240 : 290, 
+    bottom: 0, 
+    left: 0, 
+    position: "absolute" 
+  },
+  title: { 
+    fontSize: isWeb ? 32 : 28, 
+    fontWeight: "600", 
+    color: "#333", 
+    marginBottom: isWeb ? 20 : 16, 
+    textAlign: "center" 
+  },
+  section: { marginTop: isWeb ? 28 : 24 },
+  sectionHeader: { marginBottom: isWeb ? 16 : 12, marginLeft: isWeb ? 0 : 12 },
+  sectionTitle: { 
+    fontSize: isWeb ? 24 : 22, 
+    fontWeight: "600", 
+    color: "#333",
+    textAlign: isWeb ? 'center' : 'left',
+  },
+  sectionSubtitle: { 
+    fontSize: isWeb ? 15 : 14, 
+    color: "#666", 
+    marginTop: 4,
+    textAlign: isWeb ? 'center' : 'left',
+  },
   
   // ✅ Feed Container - Facebook style list
   feedContainer: {
-    paddingHorizontal: 8,
+    paddingHorizontal: isWeb ? 16 : 8,
+    maxWidth: isWeb ? 800 : '100%',
+    alignSelf: 'center' as const,
+    width: '100%',
   },
   feedItem: {
     backgroundColor: "#fff",
-    marginVertical: 10,
-    marginHorizontal: 8,
-    borderRadius: 12,
+    marginVertical: isWeb ? 16 : 10,
+    marginHorizontal: isWeb ? 0 : 8,
+    borderRadius: isWeb ? 16 : 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
+    ...(isWeb && {
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+    }),
   },
   
   // Header with title and favorite button

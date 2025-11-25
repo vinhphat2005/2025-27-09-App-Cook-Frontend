@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import Animated, {
   interpolate,
   useAnimatedRef,
@@ -13,6 +13,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { useNavigation, useRouter } from "expo-router";
 import { Notification } from "./Notification/Notification";
 import type { RefreshControlProps } from "react-native";
+import { isWeb } from "@/styles/responsive";
 type Props = PropsWithChildren<{
   headerImage: ReactElement;
   headerBackgroundColor: { dark: string; light: string };
@@ -63,15 +64,26 @@ export default function ParallaxScrollView({
       {showBackButton && (
         <Pressable
           onPress={() => {
-            if (typeof navigation !== "undefined" && navigation?.goBack) {
-              navigation.goBack();
-            } else if (typeof window !== "undefined" && window.history) {
-              window.history.back();
+            console.log('🔙 Back button pressed');
+            if (isWeb) {
+              // On web, use router
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push('/(tabs)');
+              }
+            } else {
+              // On mobile, use navigation
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                router.push('/(tabs)');
+              }
             }
           }}
           style={styles.backButton}
         >
-          <Text style={{ color: "#fff", fontSize: 22 }}>{"<"}</Text>
+          <Ionicons name="arrow-left" size={24} color="#fff" />
         </Pressable>
       )}
 
@@ -130,16 +142,19 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    top: 40,
-    left: 16,
+    top: isWeb ? 20 : 40,
+    left: isWeb ? 20 : 16,
     zIndex: 10,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 20,
-    padding: 8,
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
+    padding: isWeb ? 10 : 8,
+    width: isWeb ? 44 : 40,
+    height: isWeb ? 44 : 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...(isWeb && {
+      cursor: 'pointer' as any,
+    }),
   },
   notificationIcon: {
     position: "absolute",

@@ -7,6 +7,7 @@ import { useFavoriteStore } from "@/store/favoriteStore";
 import { useAdmin } from "@/hooks/useAdmin";
 import { normalizeDishList } from "@/types/dish";
 import { updateDishesWithFavoriteStatus } from "@/lib/favoriteUtils";
+import { isWeb } from "@/styles/responsive";
 import EntypoIcon from "@expo/vector-icons/Entypo";
 import FontAweSomeIcon from "@expo/vector-icons/FontAwesome";
 import { Ionicons } from "@expo/vector-icons";
@@ -276,6 +277,7 @@ export default function PersonalScreen() {
   }, [userDishes, token, updateFavoriteStatus]);
 
   // ✅ Handle dish deletion with confirmation
+  // ✅ Handle dish deletion with confirmation
   const handleDeleteDish = useCallback(async (dish: Dish) => {
     try {
       if (!token) {
@@ -283,64 +285,85 @@ export default function PersonalScreen() {
         return;
       }
 
-      // Show confirmation dialog
-      Alert.alert(
-        "Xóa món ăn",
-        `Bạn có chắc chắn muốn xóa "${dish.label}"?\n\nMón ăn sẽ được chuyển vào thùng rác và có thể khôi phục trong vòng 7 ngày.`,
-        [
-          {
-            text: "Hủy",
-            style: "cancel"
-          },
-          {
-            text: "Xóa",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                setDeletingDishId(dish.id);
-                console.log(`🗑️ Deleting dish ${dish.id}: ${dish.label}`);
-
-                const response = await fetch(`${API_URL}/dishes/${dish.id}`, {
-                  method: "DELETE",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                });
-
-                if (!response.ok) {
-                  const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
-                  console.error(`❌ Delete failed: ${response.status}`, errorData);
-                  throw new Error(errorData.detail || "Failed to delete dish");
+      // ✅ Platform-specific confirmation
+      const confirmed = isWeb 
+        ? window.confirm(`Bạn có chắc chắn muốn xóa "${dish.label}"?\n\nMón ăn sẽ được chuyển vào thùng rác và có thể khôi phục trong vòng 7 ngày.`)
+        : await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              "Xóa món ăn",
+              `Bạn có chắc chắn muốn xóa "${dish.label}"?\n\nMón ăn sẽ được chuyển vào thùng rác và có thể khôi phục trong vòng 7 ngày.`,
+              [
+                {
+                  text: "Hủy",
+                  style: "cancel",
+                  onPress: () => resolve(false)
+                },
+                {
+                  text: "Xóa",
+                  style: "destructive",
+                  onPress: () => resolve(true)
                 }
+              ]
+            );
+          });
 
-                const result = await response.json();
-                console.log(`✅ Successfully deleted dish ${dish.id}`, result);
+      if (!confirmed) {
+        console.log("❌ User cancelled deletion");
+        return;
+      }
 
-                // Remove from local state
-                setUserDishes(prev => prev.filter(d => d.id !== dish.id));
+      // Proceed with deletion
+      try {
+        setDeletingDishId(dish.id);
+        console.log(`🗑️ Deleting dish ${dish.id}: ${dish.label}`);
 
-                // Show success message with recovery info
-                Alert.alert(
-                  "Đã xóa món ăn",
-                  result.recovery_deadline 
-                    ? `Món ăn đã được chuyển vào thùng rác.\nCó thể khôi phục trước ngày ${new Date(result.recovery_deadline).toLocaleDateString("vi-VN")}`
-                    : "Món ăn đã được xóa thành công"
-                );
+        const response = await fetch(`${API_URL}/dishes/${dish.id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-              } catch (error: any) {
-                console.error("❌ Error deleting dish:", error);
-                Alert.alert(
-                  "Lỗi",
-                  error.message || "Không thể xóa món ăn. Vui lòng thử lại sau."
-                );
-              } finally {
-                setDeletingDishId(null);
-              }
-            }
-          }
-        ]
-      );
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+          console.error(`❌ Delete failed: ${response.status}`, errorData);
+          throw new Error(errorData.detail || "Failed to delete dish");
+        }
+
+        const result = await response.json();
+        console.log(`✅ Successfully deleted dish ${dish.id}`, result);
+
+        // Remove from local state
+        setUserDishes(prev => prev.filter(d => d.id !== dish.id));
+
+        // Show success message
+        if (isWeb) {
+          alert(result.recovery_deadline 
+            ? `Món ăn đã được chuyển vào thùng rác.\nCó thể khôi phục trước ngày ${new Date(result.recovery_deadline).toLocaleDateString("vi-VN")}`
+            : "Món ăn đã được xóa thành công");
+        } else {
+          Alert.alert(
+            "Đã xóa món ăn",
+            result.recovery_deadline 
+              ? `Món ăn đã được chuyển vào thùng rác.\nCó thể khôi phục trước ngày ${new Date(result.recovery_deadline).toLocaleDateString("vi-VN")}`
+              : "Món ăn đã được xóa thành công"
+          );
+        }
+
+      } catch (error: any) {
+        console.error("❌ Error deleting dish:", error);
+        if (isWeb) {
+          alert(error.message || "Không thể xóa món ăn. Vui lòng thử lại sau.");
+        } else {
+          Alert.alert(
+            "Lỗi",
+            error.message || "Không thể xóa món ăn. Vui lòng thử lại sau."
+          );
+        }
+      } finally {
+        setDeletingDishId(null);
+      }
 
     } catch (error) {
       console.error("❌ Error in handleDeleteDish:", error);
@@ -525,26 +548,36 @@ export default function PersonalScreen() {
 
 const styles = StyleSheet.create({
   scrollView: {
-    gap: 10,
-    padding: 20,
+    gap: isWeb ? 16 : 10,
+    padding: isWeb ? 32 : 20,
     paddingBottom: 70,
+    maxWidth: isWeb ? 800 : '100%',
+    alignSelf: 'center' as const,
+    width: '100%',
   },
   nameLabel: {
-    fontSize: 20,
+    fontSize: isWeb ? 24 : 20,
     fontWeight: "bold",
   },
   address: {
-    fontSize: 16,
+    fontSize: isWeb ? 18 : 16,
+    color: '#666',
   },
   nameContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: isWeb ? 8 : 5,
   },
   userInfoContainer: {
     flexDirection: "column",
     alignItems: "center",
-    gap: 10,
+    gap: isWeb ? 16 : 10,
+    backgroundColor: isWeb ? '#fff' : 'transparent',
+    ...(isWeb && {
+      borderRadius: 16,
+      padding: 24,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    }),
   },
   addDish: {
     alignItems: "center",
@@ -577,22 +610,33 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    height: 48,
+    backgroundColor: isWeb ? "#fff" : "#f5f5f5",
+    borderRadius: isWeb ? 16 : 12,
+    paddingHorizontal: isWeb ? 16 : 12,
+    marginBottom: isWeb ? 16 : 12,
+    height: isWeb ? 52 : 48,
+    ...(isWeb && {
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+    }),
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: isWeb ? 12 : 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: isWeb ? 16 : 16,
     color: "#333",
     paddingVertical: 0,
+    ...(isWeb && {
+      outlineStyle: 'none' as any,
+    }),
   },
   clearButton: {
-    padding: 4,
+    padding: isWeb ? 6 : 4,
+    ...(isWeb && {
+      cursor: 'pointer' as any,
+    }),
   },
 });

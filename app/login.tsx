@@ -17,13 +17,16 @@ import {
   View,
   Keyboard,
   AppState,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "@/utils/firebaseConfig";
+import { responsive, isWeb } from "@/styles/responsive";
 import * as yup from "yup";
 
 const API_BASE_URL = AppConfig.api.url;
+const { width } = Dimensions.get('window');
 
 // Login schema
 const loginSchema = yup.object({
@@ -517,36 +520,42 @@ export default function LoginOTP() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: "white" 
+    backgroundColor: isWeb ? "#f5f5f5" : "white"
   },
   keyboardAvoidingView: { 
     flex: 1 
   },
   scrollContent: { 
     flexGrow: 1, 
-    padding: 24, 
-    justifyContent: "center" 
+    padding: responsive.spacing.lg, 
+    justifyContent: "center",
+    ...(isWeb && {
+      maxWidth: 480,
+      alignSelf: 'center',
+      width: '100%',
+    }),
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: responsive.spacing.lg,
   },
   logo: { 
-    width: 100, 
-    height: 100 
+    width: isWeb ? 120 : 100, 
+    height: isWeb ? 120 : 100
   },
   title: {
-    fontSize: 24,
+    fontSize: responsive.fontSize.xxl,
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: responsive.spacing.sm,
     textAlign: "center",
+    color: '#1a1a1a',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: responsive.fontSize.md,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 20,
+    marginBottom: responsive.spacing.xl,
+    lineHeight: 22,
   },
   emailText: {
     fontWeight: 'bold',
@@ -554,64 +563,79 @@ const styles = StyleSheet.create({
   },
   // Form styles
   label: { 
-    marginBottom: 8,
-    fontSize: 16,
-    fontWeight: '500',
+    marginBottom: responsive.spacing.sm,
+    fontSize: responsive.fontSize.md,
+    fontWeight: '600',
+    color: '#333',
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
+    borderColor: "#e0e0e0",
+    borderRadius: responsive.borderRadius.md,
+    padding: responsive.spacing.md,
+    marginBottom: responsive.spacing.md,
+    fontSize: responsive.fontSize.md,
+    backgroundColor: isWeb ? 'white' : 'transparent',
+    ...(isWeb && {
+      outlineStyle: 'none' as any,
+      transition: 'border-color 0.2s',
+    }),
   },
   inputError: {
-    borderColor: "red",
+    borderColor: "#ff3b30",
   },
   errorText: { 
-    color: "red", 
-    fontSize: 12, 
-    marginTop: -10, 
-    marginBottom: 10 
+    color: "#ff3b30", 
+    fontSize: responsive.fontSize.sm, 
+    marginTop: -responsive.spacing.sm, 
+    marginBottom: responsive.spacing.sm 
   },
   submitButton: {
     backgroundColor: "#007AFF",
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 24,
-    marginBottom: 16,
+    borderRadius: responsive.borderRadius.md,
+    padding: responsive.spacing.md,
+    marginTop: responsive.spacing.lg,
+    marginBottom: responsive.spacing.md,
+    ...(isWeb && {
+      boxShadow: '0 2px 8px rgba(0, 122, 255, 0.3)' as any,
+      cursor: 'pointer' as any,
+    }),
   },
   submitButtonText: {
     color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: responsive.fontSize.lg,
+    fontWeight: "600",
     textAlign: "center",
   },
   linkButton: {
-    marginTop: 16,
+    marginTop: responsive.spacing.md,
+    padding: responsive.spacing.sm,
   },
   linkText: {
     color: "#007AFF",
-    fontSize: 16,
+    fontSize: responsive.fontSize.md,
     textAlign: "center",
   },
   // OTP styles
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
-    paddingHorizontal: 20,
+    marginBottom: responsive.spacing.lg,
+    gap: isWeb ? 12 : 8,
   },
   otpInput: {
-    width: 45,
-    height: 55,
+    width: isWeb ? 55 : 45,
+    height: isWeb ? 65 : 55,
     borderWidth: 2,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    fontSize: 24,
+    borderColor: '#e0e0e0',
+    borderRadius: responsive.borderRadius.md,
+    fontSize: responsive.fontSize.xxl,
     fontWeight: 'bold',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: isWeb ? 'white' : '#f9f9f9',
+    textAlign: 'center',
+    ...(isWeb && {
+      outlineStyle: 'none' as any,
+    }),
   },
   otpInputFilled: {
     borderColor: '#007AFF',
@@ -620,42 +644,47 @@ const styles = StyleSheet.create({
   attemptsText: {
     textAlign: 'center',
     color: '#666',
-    marginBottom: 24,
-    fontSize: 14,
+    marginBottom: responsive.spacing.lg,
+    fontSize: responsive.fontSize.md,
   },
   verifyButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: responsive.borderRadius.md,
+    padding: responsive.spacing.md,
+    marginBottom: responsive.spacing.md,
+    ...(isWeb && {
+      boxShadow: '0 2px 8px rgba(0, 122, 255, 0.3)' as any,
+    }),
   },
   verifyButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: responsive.fontSize.lg,
+    fontWeight: '600',
     textAlign: 'center',
   },
   resendButton: {
-    backgroundColor: '#28a745',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: isWeb ? '#34c759' : '#28a745',
+    borderRadius: responsive.borderRadius.md,
+    padding: responsive.spacing.md,
+    marginBottom: responsive.spacing.md,
   },
   resendButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: responsive.fontSize.lg,
+    fontWeight: '600',
     textAlign: 'center',
   },
   disabledButton: {
     backgroundColor: '#ccc',
+    opacity: 0.6,
   },
   backButton: {
-    marginTop: 16,
+    marginTop: responsive.spacing.md,
+    padding: responsive.spacing.sm,
   },
   backButtonText: {
     color: '#007AFF',
-    fontSize: 16,
+    fontSize: responsive.fontSize.md,
     textAlign: 'center',
   },
 });

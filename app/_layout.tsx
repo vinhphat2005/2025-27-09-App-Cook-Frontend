@@ -4,8 +4,15 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import "react-native-reanimated";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Platform, View } from "react-native";
+
+// Only import reanimated and gesture handler on native platforms
+let GestureHandlerRootView = View;
+if (Platform.OS !== 'web') {
+  require("react-native-reanimated");
+  const GestureHandler = require("react-native-gesture-handler");
+  GestureHandlerRootView = GestureHandler.GestureHandlerRootView;
+}
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();

@@ -2,6 +2,7 @@ import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import { isWeb } from "@/styles/responsive";
 
 type Props = {
   dish: Dish;
@@ -262,14 +263,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   content: {
-    padding: 12,
+    padding: isWeb ? 14 : 12,
   },
   title: {
-    fontSize: 15,
+    fontSize: isWeb ? 16 : 15,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
-    lineHeight: 20,
+    marginBottom: isWeb ? 10 : 8,
+    lineHeight: isWeb ? 22 : 20,
   },
   details: {
     flexDirection: 'row',
@@ -279,20 +280,20 @@ const styles = StyleSheet.create({
   timeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: isWeb ? 5 : 4,
   },
   timeText: {
-    fontSize: 12,
+    fontSize: isWeb ? 13 : 12,
     color: '#666',
     fontWeight: '500',
   },
   levelBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: isWeb ? 10 : 8,
+    paddingVertical: isWeb ? 4 : 3,
+    borderRadius: isWeb ? 10 : 8,
   },
   levelText: {
-    fontSize: 11,
+    fontSize: isWeb ? 12 : 11,
     color: '#fff',
     fontWeight: '600',
   },
