@@ -6,13 +6,26 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 /**
+ * Helper function to get environment variable
+ * Supports both process.env (native) and Constants.expoConfig.extra (web)
+ */
+const getEnv = (key: string): string | undefined => {
+  // For web builds, use Constants.expoConfig.extra
+  if (Platform.OS === 'web' && Constants.expoConfig?.extra?.[key]) {
+    return Constants.expoConfig.extra[key];
+  }
+  // For native builds, use process.env
+  return process.env[key];
+};
+
+/**
  * Auto-detect backend API URL
  * - Production: Dùng EXPO_PUBLIC_API_URL từ .env
  * - Development: Tự động phát hiện IP từ Expo dev server
  */
 const getApiUrl = (): string => {
   // Nếu có EXPO_PUBLIC_API_URL trong .env và không phải localhost
-  const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const envApiUrl = getEnv('EXPO_PUBLIC_API_URL');
   if (envApiUrl && !envApiUrl.includes('localhost') && !envApiUrl.includes('127.0.0.1')) {
     return envApiUrl;
   }
@@ -30,42 +43,42 @@ const getApiUrl = (): string => {
 export const AppConfig = {
   // Firebase Configuration
   firebase: {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID!,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID!,
+    apiKey: getEnv('EXPO_PUBLIC_FIREBASE_API_KEY')!,
+    authDomain: getEnv('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN')!,
+    projectId: getEnv('EXPO_PUBLIC_FIREBASE_PROJECT_ID')!,
+    storageBucket: getEnv('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET')!,
+    messagingSenderId: getEnv('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID')!,
+    appId: getEnv('EXPO_PUBLIC_FIREBASE_APP_ID')!,
   },
 
   // App Information
   app: {
-    name: process.env.EXPO_PUBLIC_APP_NAME || 'App Cook',
-    version: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
-    scheme: process.env.EXPO_PUBLIC_APP_SCHEME || 'aicook',
-    bundleId: process.env.EXPO_PUBLIC_BUNDLE_ID || 'com.aicook.app',
-    packageName: process.env.EXPO_PUBLIC_PACKAGE_NAME || 'com.aicook.app',
+    name: getEnv('EXPO_PUBLIC_APP_NAME') || 'App Cook',
+    version: getEnv('EXPO_PUBLIC_APP_VERSION') || '1.0.0',
+    scheme: getEnv('EXPO_PUBLIC_APP_SCHEME') || 'aicook',
+    bundleId: getEnv('EXPO_PUBLIC_BUNDLE_ID') || 'com.aicook.app',
+    packageName: getEnv('EXPO_PUBLIC_PACKAGE_NAME') || 'com.aicook.app',
   },
 
   // Email Verification
   emailVerification: {
-    actionUrl: process.env.EXPO_PUBLIC_EMAIL_VERIFICATION_URL || 
-               `https://${process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com/__/auth/action`,
+    actionUrl: getEnv('EXPO_PUBLIC_EMAIL_VERIFICATION_URL') || 
+               `https://${getEnv('EXPO_PUBLIC_FIREBASE_PROJECT_ID')}.firebaseapp.com/__/auth/action`,
   },
 
   // Google OAuth
   google: {
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    reversedClientId: process.env.EXPO_PUBLIC_GOOGLE_REVERSED_CLIENT_ID,
+    webClientId: getEnv('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID')!,
+    iosClientId: getEnv('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID'),
+    androidClientId: getEnv('EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID'),
+    reversedClientId: getEnv('EXPO_PUBLIC_GOOGLE_REVERSED_CLIENT_ID'),
   },
 
   // Backend API
   api: {
     url: getApiUrl(),
     // Expose raw env value for debugging
-    rawEnvUrl: process.env.EXPO_PUBLIC_API_URL,
+    rawEnvUrl: getEnv('EXPO_PUBLIC_API_URL'),
   },
 } as const;
 
@@ -81,7 +94,7 @@ export const validateConfig = () => {
   ];
 
   const missingVars = requiredEnvVars.filter(
-    varName => !process.env[varName]
+    varName => !getEnv(varName)
   );
 
   if (missingVars.length > 0) {
