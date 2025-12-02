@@ -1,0 +1,14 @@
+# Cloudflare Pages build configuration
+[build]
+  command = "npm run build:web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_VERSION = "10"
+
+# SPA routing support
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -10,12 +10,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Dish } from "@/types/dish";
 import { useFocusEffect } from "@react-navigation/native";
 import { isWeb } from "@/styles/responsive";
+import { AppConfig } from "@/lib/config";
 
 // ---------- utils (inline) ----------
 function getBaseUrl(): string {
-  const env = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (env) return env;
-  return "http://192.168.1.13:8000"; // thay bằng IP LAN của máy bạn khi cần
+  return AppConfig.api.url;
 }
 
 async function fetchJSON(url: string, options: RequestInit = {}, timeoutMs = 10000) {

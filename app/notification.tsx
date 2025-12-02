@@ -3,6 +3,7 @@ import { GroupNotification } from "@/components/Notification/GroupNotification";
 import { mockNotifies } from "@/constants/mock-data";
 import { emailVerificationService } from "@/lib/emailVerification";
 import { auth } from "@/utils/firebaseConfig";
+import { AppConfig } from "@/lib/config";
 import { Notify } from "@/types";
 import { Image } from "expo-image";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
@@ -229,7 +230,7 @@ export default function NotificationScreen() {
     try {
       console.log("Verifying login OTP:", otpCode);
       
-      const response = await fetch(`http://localhost:8000/api/otp/verify`, {
+      const response = await fetch(`${AppConfig.api.url}/api/otp/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -289,7 +290,7 @@ export default function NotificationScreen() {
 
     setIsResending(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/otp/resend`, {
+      const response = await fetch(`${AppConfig.api.url}/api/otp/resend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
