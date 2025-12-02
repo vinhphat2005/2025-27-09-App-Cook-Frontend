@@ -1,5 +1,0 @@
-name = "app-cook-frontend"
-compatibility_date = "2025-12-02"
-
-[site]
-bucket = "./dist"
