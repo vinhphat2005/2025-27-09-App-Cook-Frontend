@@ -7,15 +7,21 @@ import { Platform } from 'react-native';
 
 /**
  * Helper function to get environment variable
- * Supports both process.env (native) and Constants.expoConfig.extra (web)
+ * Supports both process.env (replaced by Metro at build time) and Constants.expoConfig.extra
  */
 const getEnv = (key: string): string | undefined => {
-  // For web builds, use Constants.expoConfig.extra
-  if (Platform.OS === 'web' && Constants.expoConfig?.extra?.[key]) {
+  // Metro will replace process.env.* with actual values at build time
+  const envValue = process.env[key];
+  if (envValue) {
+    return envValue;
+  }
+  
+  // Fallback to Constants.expoConfig.extra if available
+  if (Constants.expoConfig?.extra?.[key]) {
     return Constants.expoConfig.extra[key];
   }
-  // For native builds, use process.env
-  return process.env[key];
+  
+  return undefined;
 };
 
 /**
