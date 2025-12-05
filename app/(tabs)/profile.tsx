@@ -455,27 +455,27 @@ export default function PersonalScreen() {
                 size={30}
                 color="#dc502e"
               />
-          </Pressable>
-
-          {/* Admin Panel Button - Only show if user is admin */}
-          {!checkingAdmin && isAdmin && (
-            <Pressable
-              style={styles.buttonAdmin}
-              onPress={() => router.push("/admin-panel" as any)}
-            >
-              <Ionicons name="shield-checkmark" size={30} color="#FF6347" />
             </Pressable>
-          )}
 
-          {/* Trash Button - View deleted dishes */}
-          <Pressable
-            style={styles.buttonTrash}
-            onPress={() => router.push("/trash")}
-          >
-            <Ionicons name="trash-outline" size={30} color="#dc502e" />
-          </Pressable>
+            {/* Admin Panel Button - Only show if user is admin */}
+            {!checkingAdmin && isAdmin && (
+              <Pressable
+                style={styles.buttonAdmin}
+                onPress={() => router.push("/admin-panel" as any)}
+              >
+                <Ionicons name="shield-checkmark" size={30} color="#FF6347" />
+              </Pressable>
+            )}
 
-          {/* View History Button */}
+            {/* Trash Button - View deleted dishes */}
+            <Pressable
+              style={styles.buttonTrash}
+              onPress={() => router.push("/trash")}
+            >
+              <Ionicons name="trash-outline" size={30} color="#dc502e" />
+            </Pressable>
+
+            {/* View History Button */}
             <Pressable
               style={styles.buttonHistory}
               onPress={() => router.push("/view_history")}
