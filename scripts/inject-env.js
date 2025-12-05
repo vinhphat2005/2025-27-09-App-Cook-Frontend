@@ -44,10 +44,43 @@ if (!fs.existsSync(indexPath)) {
 
 let html = fs.readFileSync(indexPath, 'utf8');
 
-// Step 2a: Add Material Icons CSS from CDN
-const materialIconsCSS = `<link href="https://fonts.googleapis.com/css2?family=Material+Icons&display=swap" rel="stylesheet" />`;
-if (!html.includes('Material+Icons')) {
-  html = html.replace('<head>', `<head>${materialIconsCSS}`);
+// Step 2a: Add icon fonts CSS from CDN (support all @expo/vector-icons families)
+const iconFontsCSS = `
+<link href="https://fonts.googleapis.com/css2?family=Material+Icons&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/FontAwesome.ttf" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Feather.ttf" />
+<style>
+  @font-face {
+    font-family: 'MaterialIcons';
+    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Ionicons';
+    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'FontAwesome';
+    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/FontAwesome.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Feather';
+    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Feather.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+</style>
+`.trim();
+
+if (!html.includes('MaterialIcons')) {
+  html = html.replace('<head>', `<head>${iconFontsCSS}`);
 }
 
 // Step 2b: Add env-config.js script
