@@ -591,12 +591,55 @@ const styles = StyleSheet.create({
   editContainer: {
     flexDirection: "row",
     gap: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
   },
-  buttonEditProfile: {},
-  buttonAdmin: {},
-  buttonTrash: {}, // ✅ Add trash button style
-  buttonHistory: {},
-  button: {},
+  buttonEditProfile: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    ...isWeb && {
+      cursor: "pointer" as any,
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    },
+  },
+  buttonAdmin: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    ...isWeb && {
+      cursor: "pointer" as any,
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    },
+  },
+  buttonTrash: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    ...isWeb && {
+      cursor: "pointer" as any,
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    },
+  },
+  buttonHistory: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    ...isWeb && {
+      cursor: "pointer" as any,
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    },
+  },
+  button: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    ...isWeb && {
+      cursor: "pointer" as any,
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    },
+  },
   dishesSection: {
     marginTop: 10,
   },
