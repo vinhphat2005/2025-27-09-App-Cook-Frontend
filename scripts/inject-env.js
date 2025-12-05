@@ -44,37 +44,57 @@ if (!fs.existsSync(indexPath)) {
 
 let html = fs.readFileSync(indexPath, 'utf8');
 
-// Step 2a: Add icon fonts CSS from CDN (support all @expo/vector-icons families)
+// Step 2a: Add icon fonts CSS with @font-face from local files (copied to public/fonts/)
 const iconFontsCSS = `
-<link href="https://fonts.googleapis.com/css2?family=Material+Icons&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/FontAwesome.ttf" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Feather.ttf" />
 <style>
   @font-face {
     font-family: 'MaterialIcons';
-    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
+    src: url('/fonts/MaterialIcons.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'MaterialCommunityIcons';
+    src: url('/fonts/MaterialCommunityIcons.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
   }
   @font-face {
     font-family: 'Ionicons';
-    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+    src: url('/fonts/Ionicons.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
-  }
-  @font-face {
-    font-family: 'FontAwesome';
-    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/FontAwesome.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
+    font-display: swap;
   }
   @font-face {
     font-family: 'Feather';
-    src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.2/build/vendor/react-native-vector-icons/Fonts/Feather.ttf') format('truetype');
+    src: url('/fonts/Feather.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'FontAwesome';
+    src: url('/fonts/FontAwesome.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'AntDesign';
+    src: url('/fonts/AntDesign.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Entypo';
+    src: url('/fonts/Entypo.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
   }
 </style>
 `.trim();
