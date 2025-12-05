@@ -9,16 +9,24 @@ config.resolver.sourceExts.push('mjs', 'cjs');
 
 // Exclude problematic packages from web builds
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Exclude reanimated/gestures from web
   if (platform === 'web' && (
     moduleName.includes('react-native-reanimated') ||
     moduleName.includes('react-native-worklets') ||
     moduleName.includes('react-native-gesture-handler')
   )) {
-    // Return empty module for web
     return {
       type: 'empty',
     };
   }
+  
+  // Exclude icon font TTF files from web bundle (we load them from public/fonts/ instead)
+  if (platform === 'web' && moduleName.includes('@expo/vector-icons') && moduleName.endsWith('.ttf')) {
+    return {
+      type: 'empty',
+    };
+  }
+  
   return context.resolveRequest(context, moduleName, platform);
 };
 
