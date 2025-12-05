@@ -43,7 +43,14 @@ if (!fs.existsSync(indexPath)) {
 }
 
 let html = fs.readFileSync(indexPath, 'utf8');
-// Check if script tag already exists
+
+// Step 2a: Add Material Icons CSS from CDN
+const materialIconsCSS = `<link href="https://fonts.googleapis.com/css2?family=Material+Icons&display=swap" rel="stylesheet" />`;
+if (!html.includes('Material+Icons')) {
+  html = html.replace('<head>', `<head>${materialIconsCSS}`);
+}
+
+// Step 2b: Add env-config.js script
 if (!html.includes('env-config.js')) {
   // Insert <script src="/env-config.js"></script> before </head>
   html = html.replace('</head>', '<script src="/env-config.js"></script></head>');
