@@ -45,31 +45,33 @@ if (!fs.existsSync(indexPath)) {
 let html = fs.readFileSync(indexPath, 'utf8');
 
 // Step 2a: Add icon fonts CSS with @font-face from local files (copied to public/fonts/)
+// CRITICAL: Font-family names MUST match what @expo/vector-icons uses internally!
+// Check node_modules/@expo/vector-icons/build/{IconSet}.js for exact fontFamily parameter
 const iconFontsCSS = `
 <style>
   @font-face {
-    font-family: 'MaterialIcons';
+    font-family: 'material';
     src: url('/fonts/MaterialIcons.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
   }
   @font-face {
-    font-family: 'MaterialCommunityIcons';
+    font-family: 'material-community';
     src: url('/fonts/MaterialCommunityIcons.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
   }
   @font-face {
-    font-family: 'Ionicons';
+    font-family: 'ionicons';
     src: url('/fonts/Ionicons.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
   }
   @font-face {
-    font-family: 'Feather';
+    font-family: 'feather';
     src: url('/fonts/Feather.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
@@ -83,14 +85,14 @@ const iconFontsCSS = `
     font-display: swap;
   }
   @font-face {
-    font-family: 'AntDesign';
+    font-family: 'anticon';
     src: url('/fonts/AntDesign.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
   }
   @font-face {
-    font-family: 'Entypo';
+    font-family: 'entypo';
     src: url('/fonts/Entypo.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
