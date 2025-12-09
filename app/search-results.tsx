@@ -3,8 +3,9 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Image } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
+import { AppConfig } from '@/lib/config';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 export default function SearchResults() {
   const { query, results } = useLocalSearchParams();

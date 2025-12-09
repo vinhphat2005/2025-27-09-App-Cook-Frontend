@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFocusEffect } from "@react-navigation/native";
 import { cacheGet, cacheSet, cacheDel, cacheClearByPrefix } from "@/lib/simpleCache";
 import { useFavoriteStore } from "@/store/favoriteStore";
+import { AppConfig } from "@/lib/config";
 
 // ===== Types =====
 interface DishDetail {
@@ -97,7 +98,7 @@ export default function DishDetailScreen() {
     ? params.similarity_reason[0] 
     : (params.similarity_reason as string | undefined);
 
-  const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "";
+  const API_BASE_URL = AppConfig.api.url;
   const PAGE_SIZE = 10;
 
   const { favoriteUpdates, updateFavoriteStatus, getFavoriteStatus, setAllFavorites } = useFavoriteStore();

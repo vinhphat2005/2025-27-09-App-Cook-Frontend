@@ -13,8 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAdmin } from '@/hooks/useAdmin';
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
+import { AppConfig } from '@/lib/config';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 export default function AdminPanelScreen() {
   const { isAdmin, loading: checkingAdmin } = useAdmin();

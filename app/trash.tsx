@@ -15,8 +15,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Dish } from '@/types/dish';
 import { Image } from 'expo-image';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import { AppConfig } from '@/lib/config';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 interface DeletedDish extends Dish {
   deleted_at?: string;

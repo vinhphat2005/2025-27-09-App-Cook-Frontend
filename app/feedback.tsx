@@ -24,7 +24,8 @@ import Toast from 'react-native-toast-message';
 import { mockDishes1 } from "@/constants/mock-data";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/authStore";               // 🔹 thêm
-const API_URL = process.env.EXPO_PUBLIC_API_URL;               // 🔹 thêm
+import { AppConfig } from "@/lib/config";
+const API_URL = AppConfig.api.url;               // 🔹 thêm
 
 export default function FeedBackScreen() {
   const { id } = useLocalSearchParams();

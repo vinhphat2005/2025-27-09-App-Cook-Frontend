@@ -109,6 +109,10 @@ export default function HomeScreen() {
   // track interaction
   const trackInteraction = useCallback(
     async (dishId: string | number, type: "view" | "like" | "cook" | "favorite") => {
+      // Disabled: Backend endpoint not implemented yet
+      // TODO: Implement /api/recommendations/interaction endpoint
+      return;
+      
       try {
         if (!token) return;
         const q = new URLSearchParams({ dish_id: String(dishId), interaction_type: type });

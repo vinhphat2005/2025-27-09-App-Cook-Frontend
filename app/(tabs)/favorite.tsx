@@ -10,8 +10,9 @@ import { useEffect, useState, useCallback } from "react";
 import { StyleSheet, Text, Alert, RefreshControl, Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { isWeb } from "@/styles/responsive";
+import { AppConfig } from "@/lib/config";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 export default function FavoriteScreen() {
   const router = useRouter();

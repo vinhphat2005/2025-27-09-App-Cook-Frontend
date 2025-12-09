@@ -4,8 +4,9 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } fr
 import { Stack, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { useAuthStore } from "@/store/authStore";
+import { AppConfig } from "@/lib/config";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 type HistoryItem = {
   type: "dish" | "user";

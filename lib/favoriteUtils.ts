@@ -1,8 +1,9 @@
 // lib/favoriteUtils.ts
 import { useAuthStore } from "@/store/authStore";
 import { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
+import { AppConfig } from "@/lib/config";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 /**
  * Fetch favorite status for multiple dishes

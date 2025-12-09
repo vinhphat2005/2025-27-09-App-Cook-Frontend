@@ -22,8 +22,9 @@ import {
   RefreshControl
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { AppConfig } from "@/lib/config";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 export default function RecipeScreen() {
   const router = useRouter();

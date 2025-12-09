@@ -25,8 +25,9 @@ import {
 } from "react-native";
 import type { Dish } from "@/types/dish"; // ✅ Use dish.ts instead of index.ts
 import { useFocusEffect } from "@react-navigation/native";
+import { AppConfig } from "@/lib/config";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 export default function PersonalScreen() {
   const { user, logout, token } = useAuthStore();
@@ -70,13 +71,21 @@ export default function PersonalScreen() {
 
       // ✅ Option 1: Use dedicated /my-dishes endpoint (RECOMMENDED)
       console.log("📡 Trying /dishes/my-dishes endpoint...");
+      
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
       let response = await fetch(`${API_URL}/dishes/my-dishes?${limitParam}${searchParam}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       console.log(`📊 /my-dishes response: ${response.status} ${response.statusText}`);
 

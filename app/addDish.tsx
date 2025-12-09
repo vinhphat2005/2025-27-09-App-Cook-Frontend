@@ -19,6 +19,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getDifficultyDisplay, mapDifficultyToEnglish } from '@/types/dish';
 import { isWeb } from '@/styles/responsive';
+import { AppConfig } from '@/lib/config';
 
 export default function AddDish() {
   const { user, token, requireAuth } = useAuth();
@@ -234,7 +235,7 @@ export default function AddDish() {
         image_b64: `[base64 data - ${imageBase64?.length || 0} characters]` // Don't log full base64
       });
 
-      const API_URL = process.env.EXPO_PUBLIC_API_URL;
+      const API_URL = AppConfig.api.url;
       
       if (!API_URL) {
         Alert.alert('Lỗi cấu hình', 'Thiếu cấu hình EXPO_PUBLIC_API_URL trong môi trường');

@@ -2,8 +2,9 @@
 import { useAuth } from './useAuth';
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
+import { AppConfig } from '@/lib/config';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 /**
  * Hook to check if current user has admin privileges

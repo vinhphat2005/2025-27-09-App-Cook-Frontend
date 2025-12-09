@@ -35,24 +35,18 @@ const getEnv = (key: string): string | undefined => {
 
 /**
  * Auto-detect backend API URL
- * - Production: Dùng EXPO_PUBLIC_API_URL từ .env
- * - Development: Tự động phát hiện IP từ Expo dev server
+ * - Development: Use local backend on same WiFi network
+ * - Production: Use Render backend
  */
 const getApiUrl = (): string => {
-  // Nếu có EXPO_PUBLIC_API_URL trong .env và không phải localhost
-  const envApiUrl = getEnv('EXPO_PUBLIC_API_URL');
-  if (envApiUrl && !envApiUrl.includes('localhost') && !envApiUrl.includes('127.0.0.1')) {
-    return envApiUrl;
-  }
-
-  // Auto-detect từ Expo manifest (chỉ work trong development)
+  // Development: Auto-detect local IP from Expo dev server
   if (__DEV__ && Constants.expoConfig?.hostUri) {
     const [host] = Constants.expoConfig.hostUri.split(':');
     return `http://${host}:8000`;
   }
 
-  // Fallback: Dùng .env hoặc localhost
-  return envApiUrl || 'http://localhost:8000';
+  // Production fallback
+  return 'https://app-cook-backend.onrender.com';
 };
 
 export const AppConfig = {
