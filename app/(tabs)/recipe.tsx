@@ -1,4 +1,4 @@
-import ParallaxScrollView from "@/components/ParallaxScrollView";
+﻿import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ProductList } from "@/components/Profile/ProductList";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
@@ -62,11 +62,11 @@ const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
     }
     
     const rawDishes = await response.json();
-    console.log("Raw API response sample:", rawDishes[0]);
+    __DEV__ && console.debug("Raw API response sample:", rawDishes[0]);
     
     // ✅ Normalize API data
     const normalizedDishes = normalizeDishList(rawDishes);
-    console.log("Normalized dish sample:", normalizedDishes[0]);
+    __DEV__ && console.debug("Normalized dish sample:", normalizedDishes[0]);
 
     // ✅ No need to filter anymore - backend already filtered
     // Update favorite status if user is logged in
@@ -83,7 +83,7 @@ const fetchHighRatedDishes = useCallback(async (showRefresh = false) => {
     // Sync with global favorite updates
     const syncedDishes = syncWithFavoriteUpdates(dishesWithFavorites);
     
-    console.log("Final dishes:", syncedDishes.length);
+    __DEV__ && console.debug("Final dishes:", syncedDishes.length);
     
     setAllDishes(syncedDishes);
     setFilteredDishes(syncedDishes);

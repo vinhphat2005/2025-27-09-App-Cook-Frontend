@@ -8,7 +8,7 @@ const API_URL = AppConfig.api.url;
 /**
  * Fetch favorite status for multiple dishes
  */
-export const fetchFavoriteStatus = async (dishIds: number[]): Promise<Record<string, boolean>> => {
+export const fetchFavoriteStatus = async (dishIds: Array<string | number>): Promise<Record<string, boolean>> => {
   try {
     const token = useAuthStore.getState().token;
     if (!token || dishIds.length === 0) {

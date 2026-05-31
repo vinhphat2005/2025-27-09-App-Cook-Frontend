@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/store/authStore";
-import { emailVerificationService, shouldBlockAccess } from "@/lib/emailVerification"; 
+import { emailVerificationService, shouldBlockAccess } from "@/lib/emailVerification";
 import { auth } from "@/utils/firebaseConfig";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
@@ -7,14 +7,15 @@ import { useEffect, useState } from "react";
 export function useAuthReady() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    const unsub = (useAuthStore as any).persist.onFinishHydration?.(() => setReady(true));
-    // fallback nếu không dùng persist plugin:
-    setReady(true);
+    const store = useAuthStore as any;
+    if (store.persist?.hasHydrated?.()) {
+      setReady(true);
+    }
+    const unsub = store.persist?.onFinishHydration?.(() => setReady(true));
     return () => unsub?.();
   }, []);
   return ready;
 }
-
 export function useAuth() {
   const { isAuthenticated, token, user, login, logout } = useAuthStore();
   const router = useRouter();
@@ -28,12 +29,12 @@ export function useAuth() {
           // Kiểm tra email verification status
           const verified = await emailVerificationService.checkEmailVerified(firebaseUser);
           setIsEmailVerified(verified);
-          
-          console.log('Firebase user email verified:', verified);
-          
+
+          __DEV__ && console.debug('Firebase user email verified:', verified);
+
           // Nếu user đã đăng nhập trong app store nhưng email chưa verified
           if (isAuthenticated && !verified) {
-            console.log('User authenticated but email not verified, logging out...');
+            __DEV__ && console.debug('User authenticated but email not verified, logging out...');
             logout();
             router.replace(`/notification?type=email-verification&email=${encodeURIComponent(firebaseUser.email || '')}`);
           }
@@ -45,7 +46,7 @@ export function useAuth() {
         setIsEmailVerified(null);
         // Nếu Firebase user null nhưng app store vẫn authenticated
         if (isAuthenticated) {
-          console.log('Firebase user null but app authenticated, logging out...');
+          __DEV__ && console.debug('Firebase user null but app authenticated, logging out...');
           logout();
         }
       }
@@ -59,10 +60,10 @@ export function useAuth() {
       router.replace("/login");
       return false;
     }
-    
+
     // Kiểm tra email verification
     if (isEmailVerified === false) {
-      console.log('Email not verified, redirecting to verification...');
+      __DEV__ && console.debug('Email not verified, redirecting to verification...');
       const currentUser = auth.currentUser;
       if (currentUser?.email) {
         router.replace(`/notification?type=email-verification&email=${encodeURIComponent(currentUser.email)}`);
@@ -71,7 +72,7 @@ export function useAuth() {
       }
       return false;
     }
-    
+
     return true;
   };
 
@@ -94,7 +95,7 @@ export function useAuth() {
     if (!currentUser) {
       throw new Error('Không có user đang đăng nhập');
     }
-    
+
     await emailVerificationService.resendVerificationEmail(currentUser);
   };
 
@@ -104,7 +105,7 @@ export function useAuth() {
     if (!currentUser) {
       return false;
     }
-    
+
     const verified = await emailVerificationService.checkEmailVerified(currentUser);
     setIsEmailVerified(verified);
     return verified;

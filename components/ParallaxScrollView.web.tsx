@@ -31,7 +31,7 @@ export default function ParallaxScrollView({
       {showBackButton && (
         <Pressable
           onPress={() => {
-            console.log('🔙 Back button pressed (web)');
+            __DEV__ && console.debug('🔙 Back button pressed (web)');
             if (router.canGoBack()) {
               router.back();
             } else {

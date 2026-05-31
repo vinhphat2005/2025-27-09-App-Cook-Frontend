@@ -1,0 +1,14 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache bash curl
+
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps && npm install -g serve
+
+COPY . .
+
+EXPOSE 19006
+
+CMD ["sh", "-c", "npm run build:web && serve -s dist -l 19006"]

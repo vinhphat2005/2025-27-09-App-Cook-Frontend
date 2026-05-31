@@ -18,18 +18,24 @@ const getEnv = (key: string): string | undefined => {
       return win._env_[key];
     }
   }
-  
+
   // Try process.env (works in development and native builds)
   const envValue = process.env[key];
   if (envValue && envValue !== 'undefined') {
     return envValue;
   }
-  
+
   // Fallback to Constants.expoConfig.extra if available
-  if (Constants.expoConfig?.extra?.[key]) {
-    return Constants.expoConfig.extra[key];
+  const extraValue = Constants.expoConfig?.extra?.[key];
+  if (
+    typeof extraValue === "string" &&
+    extraValue &&
+    !extraValue.startsWith("${") &&
+    extraValue !== "undefined"
+  ) {
+    return extraValue;
   }
-  
+
   return undefined;
 };
 
@@ -39,10 +45,28 @@ const getEnv = (key: string): string | undefined => {
  * - Production: Use Render backend
  */
 const getApiUrl = (): string => {
+  const configuredUrl = getEnv('EXPO_PUBLIC_API_URL');
+  if (configuredUrl) {
+    const cleanUrl = configuredUrl.replace(/\/+$/, '');
+    if (__DEV__ && Platform.OS !== 'web' && Constants.expoConfig?.hostUri) {
+      const [host] = Constants.expoConfig.hostUri.split(':');
+      if (host && host !== 'localhost' && host !== '127.0.0.1') {
+        return cleanUrl.replace(/\/\/(localhost|127\.0\.0\.1)(?=[:/]|$)/, `//${host}`);
+      }
+    }
+    return cleanUrl;
+  }
+
   // Development: Auto-detect local IP from Expo dev server
   if (__DEV__ && Constants.expoConfig?.hostUri) {
     const [host] = Constants.expoConfig.hostUri.split(':');
-    return `http://${host}:8000`;
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      return `http://${host}:8000`;
+    }
+  }
+
+  if (__DEV__ && Platform.OS === 'web') {
+    return 'http://localhost:8000';
   }
 
   // Production fallback
@@ -71,7 +95,7 @@ export const AppConfig = {
 
   // Email Verification
   emailVerification: {
-    actionUrl: getEnv('EXPO_PUBLIC_EMAIL_VERIFICATION_URL') || 
+    actionUrl: getEnv('EXPO_PUBLIC_EMAIL_VERIFICATION_URL') ||
                `https://${getEnv('EXPO_PUBLIC_FIREBASE_PROJECT_ID')}.firebaseapp.com/__/auth/action`,
   },
 
@@ -95,7 +119,7 @@ export const AppConfig = {
 export const validateConfig = () => {
   const requiredEnvVars = [
     'EXPO_PUBLIC_FIREBASE_API_KEY',
-    'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN', 
+    'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
     'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
     'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
     'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
@@ -113,13 +137,13 @@ export const validateConfig = () => {
     );
   }
 
-  console.log('✅ Environment configuration validated successfully');
+  __DEV__ && console.debug('✅ Environment configuration validated successfully');
 };
 
 // Development helper để log cấu hình (chỉ trong dev mode)
 export const logConfig = () => {
   if (__DEV__) {
-    console.log('🔧 App Configuration:', {
+    __DEV__ && console.debug('🔧 App Configuration:', {
       projectId: AppConfig.firebase.projectId,
       appName: AppConfig.app.name,
       version: AppConfig.app.version,

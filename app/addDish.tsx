@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -68,7 +68,7 @@ export default function AddDish() {
         setImageBase64(base64Data);
         setImageMime(file.type || 'image/jpeg');
         
-        console.log('Image selected (web):', {
+        __DEV__ && console.debug('Image selected (web):', {
           name: file.name,
           type: file.type,
           size: file.size,
@@ -106,7 +106,7 @@ export default function AddDish() {
       setImageMime(selectedImage.mimeType || 'image/jpeg');
       
       // Log để debug
-      console.log('Image selected (mobile):', {
+      __DEV__ && console.debug('Image selected (mobile):', {
         uri: selectedImage.uri,
         mimeType: selectedImage.mimeType,
         base64Length: selectedImage.base64?.length || 0
@@ -129,7 +129,7 @@ export default function AddDish() {
   };
 
   // Remove ingredient
-  const removeIngredient = (index) => {
+  const removeIngredient = (index: number) => {
     if (ingredients.length > 1) {
       const newIngredients = ingredients.filter((_, i) => i !== index);
       setIngredients(newIngredients);
@@ -137,7 +137,7 @@ export default function AddDish() {
   };
 
   // Update ingredient
-  const updateIngredient = (index, value) => {
+  const updateIngredient = (index: number, value: string) => {
     const newIngredients = [...ingredients];
     newIngredients[index] = value;
     setIngredients(newIngredients);
@@ -149,7 +149,7 @@ export default function AddDish() {
   };
 
   // Remove instruction
-  const removeInstruction = (index) => {
+  const removeInstruction = (index: number) => {
     if (instructions.length > 1) {
       const newInstructions = instructions.filter((_, i) => i !== index);
       setInstructions(newInstructions);
@@ -157,7 +157,7 @@ export default function AddDish() {
   };
 
   // Update instruction
-  const updateInstruction = (index, value) => {
+  const updateInstruction = (index: number, value: string) => {
     const newInstructions = [...instructions];
     newInstructions[index] = value;
     setInstructions(newInstructions);
@@ -170,7 +170,7 @@ export default function AddDish() {
       return false;
     }
     
-    if (!cookingTime || isNaN(cookingTime) || parseInt(cookingTime) <= 0) {
+    if (!cookingTime || Number.isNaN(Number(cookingTime)) || parseInt(cookingTime, 10) <= 0) {
       Alert.alert('Lỗi', 'Vui lòng nhập thời gian nấu hợp lệ (số phút > 0)!');
       return false;
     }
@@ -207,7 +207,7 @@ export default function AddDish() {
       // ✅ FIXED: Use helper function to convert Vietnamese difficulty to English
       const englishDifficulty = mapDifficultyToEnglish(difficulty);
       
-      console.log('🔍 Difficulty mapping:', {
+      __DEV__ && console.debug('🔍 Difficulty mapping:', {
         vietnamese: difficulty,
         english: englishDifficulty
       });
@@ -230,7 +230,7 @@ export default function AddDish() {
         instructions: filteredInstructions,
       };
 
-      console.log('Sending dish data:', {
+      __DEV__ && console.debug('Sending dish data:', {
         ...dishData,
         image_b64: `[base64 data - ${imageBase64?.length || 0} characters]` // Don't log full base64
       });
@@ -242,8 +242,8 @@ export default function AddDish() {
         return; 
       }
 
-      console.log('📤 Sending request to:', `${API_URL}/dishes/with-recipe`);
-      console.log('📤 With authorization token:', token ? 'Present' : 'Missing');
+      __DEV__ && console.debug('📤 Sending request to:', `${API_URL}/dishes/with-recipe`);
+      __DEV__ && console.debug('📤 With authorization token:', token ? 'Present' : 'Missing');
 
       const response = await fetch(`${API_URL}/dishes/with-recipe`, {
         method: 'POST',
@@ -254,13 +254,13 @@ export default function AddDish() {
         body: JSON.stringify(dishData),
       });
 
-      console.log('📥 Response status:', response.status, response.statusText);
+      __DEV__ && console.debug('📥 Response status:', response.status, response.statusText);
 
       const result = await response.json();
-      console.log('📥 Response data:', result);
+      __DEV__ && console.debug('📥 Response data:', result);
       
       if (response.ok) {
-        console.log('✅ Dish created successfully!');
+        __DEV__ && console.debug('✅ Dish created successfully!');
         
         // Reset form
         setDishName('');
@@ -462,7 +462,7 @@ export default function AddDish() {
                     difficulty === level && styles.difficultyButtonActive
                   ]}
                   onPress={() => {
-                    console.log('🔍 Difficulty selected:', level);
+                    __DEV__ && console.debug('🔍 Difficulty selected:', level);
                     setDifficulty(level);
                   }}
                 >

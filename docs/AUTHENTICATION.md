@@ -38,14 +38,14 @@ The `useAuth` hook provides authentication utilities and state management.
 import { useAuth } from "@/hooks/useAuth";
 
 function MyComponent() {
-  const { 
-    isAuthenticated, 
-    token, 
-    user, 
-    login, 
-    logout, 
-    requireAuth, 
-    redirectIfAuthenticated 
+  const {
+    isAuthenticated,
+    token,
+    user,
+    login,
+    logout,
+    requireAuth,
+    redirectIfAuthenticated
   } = useAuth();
 
   // Check if user is authenticated
@@ -110,10 +110,16 @@ interface AuthState {
   token: string | null;
   user: any | null;
   isAuthenticated: boolean;
+  _hasHydrated: boolean;
   login: (token: string, user: any) => void;
   logout: () => void;
+  setHasHydrated: (state: boolean) => void;
 }
 ```
+
+The store uses Zustand `persist` with AsyncStorage under the `app-cook-auth`
+key. Only `token`, `user`, and `isAuthenticated` are persisted; hydration state
+is runtime-only.
 
 ## Usage Examples
 
@@ -125,10 +131,10 @@ const handleLogin = async (credentials) => {
   try {
     // Call your API
     const response = await api.login(credentials);
-    
+
     // Store authentication data
     login(response.token, response.user);
-    
+
     // Navigate to protected area
     router.replace("/(tabs)");
   } catch (error) {
@@ -176,4 +182,4 @@ return (
 - Authentication state is client-side only
 - Implement proper token refresh mechanisms for production
 - Add server-side validation for all protected endpoints
-- Consider implementing biometric authentication for enhanced security 
+- Consider implementing biometric authentication for enhanced security

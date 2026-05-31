@@ -1,11 +1,9 @@
 // lib/api.ts
 import { normalizeDishList } from "@/types/dish";
-// đúng ví dụ:
 import { useAuthStore } from "@/store/authStore";
-// hoặc đường dẫn tương đối: ../store/authStore
+import { AppConfig } from "@/lib/config";
 
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 async function j<T>(r: Response) {
   if (!r.ok) throw new Error(await r.text().catch(() => `HTTP ${r.status}`));
@@ -26,9 +24,7 @@ export async function fetchTodaySuggestions(opts?: { userId?: string }) {
   }
 
   const raw = await res.json();
-  console.log("Raw data from backend:", raw);
+  __DEV__ && console.debug("Raw data from backend:", raw);
 
   return normalizeDishList(raw);
 }
-
-

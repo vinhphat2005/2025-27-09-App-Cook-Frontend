@@ -32,13 +32,13 @@ export default function FavoriteScreen() {
         setLoading(true);
       }
       setError(null);
-      
+
       const currentToken = useAuthStore.getState().token;
       if (!currentToken) {
         throw new Error("Authentication required");
       }
 
-      console.log("🔄 Fetching favorite dishes...");
+      __DEV__ && console.debug("🔄 Fetching favorite dishes...");
 
       const response = await fetch(`${API_URL}/users/me/favorites`, {
         method: "GET",
@@ -53,11 +53,11 @@ export default function FavoriteScreen() {
       }
 
       const data = await response.json();
-      console.log("📋 Raw favorite dishes data:", data.length);
-      
+      __DEV__ && console.debug("📋 Raw favorite dishes data:", data.length);
+
       // ✅ Use normalizeDishList for consistent data structure
       const normalizedDishes = normalizeDishList(data);
-      
+
       // Set all dishes as favorite and sync with global store
       const processedDishes = normalizedDishes.map(dish => {
         const globalStatus = getFavoriteStatus(dish.id);
@@ -66,9 +66,9 @@ export default function FavoriteScreen() {
           isFavorite: globalStatus !== undefined ? globalStatus : true
         };
       });
-      
-      console.log("✅ Processed favorite dishes:", processedDishes.length);
-      console.log("🔍 Sample dish:", {
+
+      __DEV__ && console.debug("✅ Processed favorite dishes:", processedDishes.length);
+      __DEV__ && console.debug("🔍 Sample dish:", {
         id: processedDishes[0]?.id,
         name: processedDishes[0]?.label,
         level: processedDishes[0]?.level,
@@ -87,7 +87,7 @@ export default function FavoriteScreen() {
   }, [getFavoriteStatus]); // ✅ Only depend on getFavoriteStatus
 
   // ✅ Toggle favorite - simplified
-  const toggleFavorite = useCallback(async (dishId: number) => {
+  const toggleFavorite = useCallback(async (dishId: string | number) => {
     try {
       const currentToken = useAuthStore.getState().token;
       if (!currentToken) {
@@ -104,11 +104,11 @@ export default function FavoriteScreen() {
       // Optimistic update - remove from favorites list
       const updatedDishes = favoriteDishes.filter(dish => dish.id !== dishId);
       setFavoriteDishes(updatedDishes);
-      
+
       // Update global store
       updateFavoriteStatus(dishId, false);
 
-      console.log(`❤️ Removing dish ${dishId} from favorites`);
+      __DEV__ && console.debug(`❤️ Removing dish ${dishId} from favorites`);
 
       // API call
       const response = await fetch(`${API_URL}/dishes/${dishId}/toggle-favorite`, {
@@ -121,17 +121,17 @@ export default function FavoriteScreen() {
 
       if (!response.ok) {
         console.error(`❌ API call failed: ${response.status}`);
-        
+
         // Revert on error - sort by string comparison
-        setFavoriteDishes(prev => [...prev, currentDish].sort((a, b) => 
+        setFavoriteDishes(prev => [...prev, currentDish].sort((a, b) =>
           String(a.id).localeCompare(String(b.id))
         ));
         updateFavoriteStatus(dishId, true);
         throw new Error("Failed to toggle favorite");
       }
 
-      console.log(`✅ Successfully removed dish ${dishId} from favorites`);
-      
+      __DEV__ && console.debug(`✅ Successfully removed dish ${dishId} from favorites`);
+
     } catch (err: any) {
       console.error("❌ Error toggling favorite:", err);
       Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
@@ -161,12 +161,12 @@ export default function FavoriteScreen() {
   // ✅ Web: Listen to favoriteUpdates changes and refetch
   useEffect(() => {
     if (isWeb && token && Object.keys(favoriteUpdates).length > 0) {
-      console.log("🌐 Web: Favorite updates detected, refetching...");
-      console.log("📊 Updated favorites:", favoriteUpdates);
-      
+      __DEV__ && console.debug("🌐 Web: Favorite updates detected, refetching...");
+      __DEV__ && console.debug("📊 Updated favorites:", favoriteUpdates);
+
       // Delay a bit to ensure backend is updated
       const timer = setTimeout(() => {
-        console.log("🔄 Refetching favorite dishes from API...");
+        __DEV__ && console.debug("🔄 Refetching favorite dishes from API...");
         fetchFavoriteDishes(false);
       }, 300);
       return () => clearTimeout(timer);
@@ -177,13 +177,13 @@ export default function FavoriteScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!isWeb && token && favoriteDishes.length > 0) {
-        console.log("📱 Mobile: FavoriteScreen came into focus - syncing favorite status");
-        
+        __DEV__ && console.debug("📱 Mobile: FavoriteScreen came into focus - syncing favorite status");
+
         // Only sync favorite status from global store, don't refetch
-        setFavoriteDishes(prev => 
+        setFavoriteDishes(prev =>
           prev.map(dish => {
             const globalStatus = getFavoriteStatus(dish.id);
-            return globalStatus !== undefined 
+            return globalStatus !== undefined
               ? { ...dish, isFavorite: globalStatus }
               : dish;
           }).filter(dish => dish.isFavorite) // Remove dishes that are no longer favorites
@@ -195,12 +195,12 @@ export default function FavoriteScreen() {
   // ✅ Debug log - only when dishes change
   useEffect(() => {
     if (favoriteDishes.length > 0) {
-      console.log("🔍 Current favorite dishes:", 
-        favoriteDishes.slice(0, 3).map(d => ({ 
-          id: d.id, 
-          name: d.label, 
+      __DEV__ && console.debug("🔍 Current favorite dishes:",
+        favoriteDishes.slice(0, 3).map(d => ({
+          id: d.id,
+          name: d.label,
           level: d.level,
-          isFavorite: d.isFavorite 
+          isFavorite: d.isFavorite
         }))
       );
     }
@@ -279,7 +279,7 @@ export default function FavoriteScreen() {
       }
     >
       <Text style={styles.title}>Món ăn đã Thích</Text>
-      
+
       <ProductList
         dishes={favoriteDishes}
         onPress={handleDishPress}

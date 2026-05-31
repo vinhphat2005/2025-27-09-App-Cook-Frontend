@@ -14,8 +14,6 @@ import { useState } from "react";
 export default function EditProfile() {
   const [text, setText] = useState("");
   const onSubmit = () => {
-    // TODO: call API to save rating & comment
-
     if (typeof navigation !== "undefined" && navigation?.goBack) {
       navigation.goBack();
     } else if (typeof window !== "undefined" && window.history) {
@@ -26,15 +24,12 @@ export default function EditProfile() {
   const [image, setImage] = useState<string | null>(null);
   const navigation = useNavigation();
   const pickImage = async () => {
-    // No permissions request is necessary for launching the image library
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
     });
-
-    console.log(result);
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
@@ -59,9 +54,7 @@ export default function EditProfile() {
       <View style={styles.apply}>
         <Pressable
           style={styles.buttonChange}
-          onPress={() => {
-            onSubmit;
-          }}
+          onPress={onSubmit}
         >
           <Text style={styles.textChange}>Lưu thay đổi</Text>{" "}
         </Pressable>
@@ -84,7 +77,7 @@ const styles = StyleSheet.create({
   image: {
     width: 150,
     height: 150,
-    borderRadius: "50%",
+    borderRadius: 75,
   },
 
   displayName: {

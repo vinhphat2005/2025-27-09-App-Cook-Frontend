@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+﻿import React, { useCallback, useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -166,7 +166,7 @@ export default function DishDetailScreen() {
     const globalStatus = getFavoriteStatus(dishStringId);
     
     if (globalStatus !== undefined && globalStatus !== dishData.dish.isFavorite) {
-      console.log(`🔄 [Detail] Syncing dish ${dishStringId} favorite status: ${globalStatus}`);
+      __DEV__ && console.debug(`🔄 [Detail] Syncing dish ${dishStringId} favorite status: ${globalStatus}`);
       setDishData(prev => prev ? {
         ...prev,
         dish: { ...prev.dish, isFavorite: globalStatus }
@@ -189,7 +189,7 @@ export default function DishDetailScreen() {
       const currentFavoriteStatus = dishData.dish.isFavorite;
       const newFavoriteStatus = !currentFavoriteStatus;
 
-      console.log(`🎯 [Detail] Toggling favorite for dish ${dishStringId}: ${currentFavoriteStatus} → ${newFavoriteStatus}`);
+      __DEV__ && console.debug(`🎯 [Detail] Toggling favorite for dish ${dishStringId}: ${currentFavoriteStatus} → ${newFavoriteStatus}`);
 
       // Optimistic update
       setDishData(prev => prev ? {
@@ -199,7 +199,7 @@ export default function DishDetailScreen() {
 
       // Update global store with STRING key
       updateFavoriteStatus(dishStringId, newFavoriteStatus);
-      console.log(`📝 [Detail] Updated global store: dish ${dishStringId} = ${newFavoriteStatus}`);
+      __DEV__ && console.debug(`📝 [Detail] Updated global store: dish ${dishStringId} = ${newFavoriteStatus}`);
 
       // Call API
       const response = await fetch(`${API_BASE_URL}/dishes/${dishId}/toggle-favorite`, {
@@ -223,7 +223,7 @@ export default function DishDetailScreen() {
       const ck = `dish:${dishId}`;
       cacheDel(ck);
       
-      console.log(`✅ [Detail] Toggled favorite for dish ${dishStringId}: ${newFavoriteStatus}`);
+      __DEV__ && console.debug(`✅ [Detail] Toggled favorite for dish ${dishStringId}: ${newFavoriteStatus}`);
       
     } catch (err: any) {
       console.error("Error toggling favorite:", err);
@@ -249,13 +249,13 @@ export default function DishDetailScreen() {
       });
 
       if (response.ok) {
-        console.log(`Logged view activity for dish ${dishId}`);
+        __DEV__ && console.debug(`Logged view activity for dish ${dishId}`);
         setViewActivityLogged(true);
       } else {
-        console.log(`View activity failed: ${response.status}`);
+        __DEV__ && console.debug(`View activity failed: ${response.status}`);
       }
     } catch (err) {
-      console.log("Error logging view activity:", err);
+      __DEV__ && console.debug("Error logging view activity:", err);
     }
   }, [dishId, token, API_BASE_URL, dishData, viewActivityLogged]);
 
@@ -273,24 +273,24 @@ export default function DishDetailScreen() {
 
       if (res.ok) {
         const favoriteDishes = await res.json();
-        console.log(`✅ [Detail] Fetched ${favoriteDishes.length} favorite dishes from API`);
+        __DEV__ && console.debug(`✅ [Detail] Fetched ${favoriteDishes.length} favorite dishes from API`);
         
         // ✅ Replace global store with fresh favorites from API (as strings)
         const favoriteIds = favoriteDishes.map((dish: any) => String(dish.id));
         
         setAllFavorites(favoriteIds);
-        console.log(`📝 [Detail] Updated global store with favorites:`, favoriteIds);
+        __DEV__ && console.debug(`📝 [Detail] Updated global store with favorites:`, favoriteIds);
         
         // ✅ Log current dish favorite status for debugging
         if (dishId) {
           const isFavorite = favoriteDishes.some((dish: any) => {
             return String(dish.id) === String(dishId);
           });
-          console.log(`🔍 [Detail] Current dish ${dishId} is ${isFavorite ? 'FAVORITE' : 'NOT FAVORITE'}`);
+          __DEV__ && console.debug(`🔍 [Detail] Current dish ${dishId} is ${isFavorite ? 'FAVORITE' : 'NOT FAVORITE'}`);
         }
       }
     } catch (err) {
-      console.log("❌ [Detail] Failed to fetch favorites:", err);
+      __DEV__ && console.debug("❌ [Detail] Failed to fetch favorites:", err);
     }
   }, [token, API_BASE_URL, dishId, setAllFavorites]);
   
@@ -357,21 +357,21 @@ export default function DishDetailScreen() {
         const dishStringId = String(data.dish.id); // ✅ Use string for MongoDB ObjectId
         const globalStatus = getFavoriteStatus(dishStringId);
         
-        console.log(`🔍 [Detail] Dish ${dishStringId} - Global favorite: ${globalStatus}, API favorite: ${data.dish.isFavorite}`);
+        __DEV__ && console.debug(`🔍 [Detail] Dish ${dishStringId} - Global favorite: ${globalStatus}, API favorite: ${data.dish.isFavorite}`);
         
         // Use global store as source of truth
         if (globalStatus !== undefined) {
           data.dish.isFavorite = globalStatus;
-          console.log(`✅ [Detail] Updated dish ${dishStringId} favorite to: ${globalStatus}`);
+          __DEV__ && console.debug(`✅ [Detail] Updated dish ${dishStringId} favorite to: ${globalStatus}`);
         } else {
-          console.log(`⚠️ [Detail] No global favorite status for dish ${dishStringId}, using API value: ${data.dish.isFavorite}`);
+          __DEV__ && console.debug(`⚠️ [Detail] No global favorite status for dish ${dishStringId}, using API value: ${data.dish.isFavorite}`);
         }
       }
       
       // ✅ NEW: Add similarity_reason from URL params
       if (similarity_reason && data.dish) {
         data.dish.similarity_reason = decodeURIComponent(similarity_reason);
-        console.log(`💡 [Detail] Added similarity_reason: ${data.dish.similarity_reason}`);
+        __DEV__ && console.debug(`💡 [Detail] Added similarity_reason: ${data.dish.similarity_reason}`);
       }
       
       setDishData(data);
@@ -747,7 +747,7 @@ export default function DishDetailScreen() {
   // ✅ Enhanced useFocusEffect để sync favorite - SEQUENTIAL LOADING
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 [Detail] Screen focused, refreshing data...");
+      __DEV__ && console.debug("🔄 [Detail] Screen focused, refreshing data...");
       
       // Reset view activity logging
       setViewActivityLogged(false);
@@ -809,7 +809,7 @@ export default function DishDetailScreen() {
 
   // ✅ Enhanced favorite sync effect
   useEffect(() => {
-    console.log("Favorite updates changed, syncing...");
+    __DEV__ && console.debug("Favorite updates changed, syncing...");
     syncDishWithFavoriteUpdates();
   }, [favoriteUpdates, syncDishWithFavoriteUpdates]);
 
@@ -1033,7 +1033,7 @@ export default function DishDetailScreen() {
                 cachePolicy="disk"
                 priority="high"
                 transition={200}
-                onError={(e) => console.log("Image error:", e)}
+                onError={(e) => __DEV__ && console.debug("Image error:", e)}
               />
             ) : (
               <View style={[styles.headerImage, styles.placeholderImage]}>

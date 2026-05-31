@@ -4,15 +4,12 @@
  */
 
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import { AppConfig } from '@/lib/config';
 
 // Detect if running on Cloudflare Pages or local dev
-const isCloudflare = typeof window !== 'undefined' && 
-                      window.location.hostname !== 'localhost' && 
+const isCloudflare = typeof window !== 'undefined' &&
+                      window.location.hostname !== 'localhost' &&
                       window.location.hostname !== '127.0.0.1';
-
-// Get API URL from environment variable (set in Cloudflare Pages)
-const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 /**
  * Base API URL - auto-selects based on environment
@@ -20,13 +17,7 @@ const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
  * - Local dev: Uses localhost:8000
  * - Expo Go: Uses your computer's local IP
  */
-export const API_BASE_URL = ENV_API_URL || 
-  (isCloudflare 
-    ? 'https://your-app.onrender.com'  // ⚠️ Replace this after Render deployment
-    : Platform.OS === 'web'
-      ? 'http://localhost:8000'
-      : `http://${Constants.expoConfig?.hostUri?.split(':')[0]}:8000`
-  );
+export const API_BASE_URL = AppConfig.api.url;
 
 export const API_ENDPOINTS = {
   // Auth
@@ -36,7 +27,7 @@ export const API_ENDPOINTS = {
     VERIFY_TOKEN: `${API_BASE_URL}/auth/verify-token`,
     REFRESH: `${API_BASE_URL}/auth/refresh`,
   },
-  
+
   // Users
   USERS: {
     BASE: `${API_BASE_URL}/users`,
@@ -45,7 +36,7 @@ export const API_ENDPOINTS = {
     FOLLOWERS: (userId: string) => `${API_BASE_URL}/users/${userId}/followers`,
     FOLLOWING: (userId: string) => `${API_BASE_URL}/users/${userId}/following`,
   },
-  
+
   // Dishes
   DISHES: {
     BASE: `${API_BASE_URL}/dishes`,
@@ -57,26 +48,26 @@ export const API_ENDPOINTS = {
     FAVORITES: `${API_BASE_URL}/dishes/favorites`,
     BY_USER: (userId: string) => `${API_BASE_URL}/dishes/user/${userId}`,
   },
-  
+
   // Recipes
   RECIPES: {
     BASE: `${API_BASE_URL}/recipes`,
     BY_DISH: (dishId: string) => `${API_BASE_URL}/recipes/dish/${dishId}`,
   },
-  
+
   // Comments
   COMMENTS: {
     BASE: `${API_BASE_URL}/comments`,
     BY_DISH: (dishId: string) => `${API_BASE_URL}/comments/dish/${dishId}`,
   },
-  
+
   // Search
   SEARCH: {
     BASE: `${API_BASE_URL}/search`,
     DISHES: `${API_BASE_URL}/search/dishes`,
     USERS: `${API_BASE_URL}/search/users`,
   },
-  
+
   // Recommendations
   RECOMMENDATIONS: {
     BASE: `${API_BASE_URL}/api/recommendations`,
@@ -88,10 +79,9 @@ export const API_ENDPOINTS = {
 if (isCloudflare && typeof window !== 'undefined') {
   fetch(`${API_BASE_URL}/health`, { method: 'HEAD' }).catch(() => {});
 }
-
 // Log current environment for debugging
 if (__DEV__) {
-  console.log('🌐 API Configuration:', {
+  __DEV__ && console.debug('🌐 API Configuration:', {
     environment: isCloudflare ? 'Production (Cloudflare)' : 'Development',
     baseURL: API_BASE_URL,
     platform: Platform.OS,

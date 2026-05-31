@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+﻿import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Image } from 'react-native';
@@ -69,7 +69,7 @@ export default function SearchResults() {
           break;
       }
     } catch (e: any) {
-      console.log("handleItemPress error:", e?.message || e);
+      __DEV__ && console.debug("handleItemPress error:", e?.message || e);
       Alert.alert("Lỗi", "Có lỗi xảy ra, vui lòng thử lại.");
     }
   };
@@ -111,7 +111,7 @@ export default function SearchResults() {
                   source={{ uri: imgUri }} 
                   style={styles.itemImage}
                   // Thêm fallback nếu load ảnh thất bại
-                  onError={() => console.log("Failed to load image:", imgUri)}
+                  onError={() => __DEV__ && console.debug("Failed to load image:", imgUri)}
                 />
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemName}>{dish.name}</Text>

@@ -62,7 +62,7 @@ export default function TrashScreen() {
       }
 
       const data = await response.json();
-      console.log(`📥 Fetched ${data.length} deleted dishes`);
+      __DEV__ && console.debug(`📥 Fetched ${data.length} deleted dishes`);
       setDeletedDishes(data);
     } catch (err: any) {
       console.error('❌ Error fetching deleted dishes:', err);
@@ -103,11 +103,11 @@ export default function TrashScreen() {
                 throw new Error(`Failed to restore dish: ${response.status}`);
               }
 
-              console.log(`✅ Successfully restored dish ${dish.id}`);
-              
+              __DEV__ && console.debug(`✅ Successfully restored dish ${dish.id}`);
+
               // Remove from list
               setDeletedDishes(prev => prev.filter(d => String(d.id) !== String(dish.id)));
-              
+
               Alert.alert('Thành công', `Đã khôi phục "${dish.label}"`);
             } catch (err: any) {
               console.error('❌ Error restoring dish:', err);
@@ -152,11 +152,11 @@ export default function TrashScreen() {
                 throw new Error(`Failed to delete dish permanently: ${response.status}`);
               }
 
-              console.log(`✅ Successfully deleted dish ${dish.id} permanently`);
-              
+              __DEV__ && console.debug(`✅ Successfully deleted dish ${dish.id} permanently`);
+
               // Remove from list
               setDeletedDishes(prev => prev.filter(d => String(d.id) !== String(dish.id)));
-              
+
               Alert.alert('Thành công', `Đã xóa vĩnh viễn "${dish.label}"`);
             } catch (err: any) {
               console.error('❌ Error deleting dish permanently:', err);
@@ -173,7 +173,7 @@ export default function TrashScreen() {
   // Load data on focus
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 Trash screen focused - fetching deleted dishes');
+      __DEV__ && console.debug('🔄 Trash screen focused - fetching deleted dishes');
       fetchDeletedDishes();
     }, [fetchDeletedDishes])
   );
@@ -183,7 +183,7 @@ export default function TrashScreen() {
     const isDeleting = deletingId === item.id;
     const isProcessing = isRestoring || isDeleting;
 
-    const daysLeft = item.recovery_deadline 
+    const daysLeft = item.recovery_deadline
       ? Math.ceil((new Date(item.recovery_deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : 0;
 
@@ -194,18 +194,18 @@ export default function TrashScreen() {
           style={styles.dishImage}
           contentFit="cover"
         />
-        
+
         <View style={styles.dishInfo}>
           <Text style={styles.dishName} numberOfLines={2}>
             {item.label}
           </Text>
-          
+
           {item.deleted_at && (
             <Text style={styles.deletedDate}>
               Xóa lúc: {new Date(item.deleted_at).toLocaleDateString('vi-VN')}
             </Text>
           )}
-          
+
           {daysLeft > 0 && (
             <Text style={styles.recoveryDeadline}>
               Còn {daysLeft} ngày để khôi phục

@@ -1,6 +1,6 @@
-import { 
-  sendEmailVerification, 
-  reload, 
+import {
+  sendEmailVerification,
+  reload,
   User,
   fetchSignInMethodsForEmail,
   applyActionCode,
@@ -25,8 +25,8 @@ export const emailVerificationService: EmailVerificationService = {
   // Gửi email xác thực
   sendVerificationEmail: async (user: User) => {
     try {
-      console.log('Sending verification email to:', user.email);
-      
+      __DEV__ && console.debug('Sending verification email to:', user.email);
+
       // Cấu hình action code settings từ environment variables
       const actionCodeSettings = {
         // URL người dùng sẽ được redirect sau khi click link
@@ -43,17 +43,17 @@ export const emailVerificationService: EmailVerificationService = {
         }
       };
 
-      console.log('📧 Email verification config:', {
+      __DEV__ && console.debug('📧 Email verification config:', {
         url: actionCodeSettings.url,
         bundleId: actionCodeSettings.iOS.bundleId,
         packageName: actionCodeSettings.android.packageName
       });
 
       await sendEmailVerification(user, actionCodeSettings);
-      console.log('✅ Verification email sent successfully');
+      __DEV__ && console.debug('✅ Verification email sent successfully');
     } catch (error: any) {
       console.error('❌ Error sending verification email:', error);
-      
+
       // Handle specific errors
       switch (error.code) {
         case 'auth/too-many-requests':
@@ -73,7 +73,7 @@ export const emailVerificationService: EmailVerificationService = {
     try {
       // Reload user để lấy thông tin mới nhất
       await reload(user);
-      console.log('Email verified status:', user.emailVerified);
+      __DEV__ && console.debug('Email verified status:', user.emailVerified);
       return user.emailVerified;
     } catch (error: any) {
       console.error('❌ Error checking email verification:', error);
@@ -104,8 +104,8 @@ export const emailVerificationService: EmailVerificationService = {
   // Kiểm tra email có tồn tại và có thể gửi email thực sự không
   checkEmailExists: async (email: string): Promise<boolean> => {
     try {
-      console.log('Checking if email exists in Firebase:', email);
-      
+      __DEV__ && console.debug('Checking if email exists in Firebase:', email);
+
       // Bước 1: Kiểm tra email format hợp lệ
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
@@ -114,31 +114,31 @@ export const emailVerificationService: EmailVerificationService = {
 
       // Bước 2: Kiểm tra email đã tồn tại trong Firebase
       const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-      console.log('Sign in methods for email:', signInMethods);
-      
+      __DEV__ && console.debug('Sign in methods for email:', signInMethods);
+
       const existsInFirebase = signInMethods.length > 0;
-      
+
       // Bước 3: Kiểm tra email domain có hợp lệ không (basic validation)
       const domain = email.split('@')[1];
       const commonDomains = [
-        'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 
+        'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
         'icloud.com', 'live.com', 'msn.com', 'aol.com',
         'protonmail.com', 'yandex.com', 'mail.com'
       ];
-      
+
       const isCommonDomain = commonDomains.includes(domain.toLowerCase());
-      
+
       if (!isCommonDomain) {
-        console.log(`⚠️ Uncommon email domain: ${domain}`);
+        __DEV__ && console.debug(`⚠️ Uncommon email domain: ${domain}`);
         // Không block, chỉ warning
       }
 
-      console.log(`Email ${email} - Firebase exists: ${existsInFirebase}, Domain valid: ${isCommonDomain}`);
-      
+      __DEV__ && console.debug(`Email ${email} - Firebase exists: ${existsInFirebase}, Domain valid: ${isCommonDomain}`);
+
       return existsInFirebase;
     } catch (error: any) {
       console.error('❌ Error checking email existence:', error);
-      
+
       switch (error.code) {
         case 'auth/invalid-email':
           throw new Error('Email không hợp lệ.');
@@ -169,7 +169,7 @@ export const emailVerificationService: EmailVerificationService = {
         'mailinator.com', 'yopmail.com', 'temp-mail.org',
         'throwaway.email', '10minuteemail.com'
       ];
-      
+
       const domain = email.split('@')[1]?.toLowerCase();
       if (disposableDomains.includes(domain)) {
         return { valid: false, reason: 'Email tạm thời không được phép' };
@@ -183,11 +183,11 @@ export const emailVerificationService: EmailVerificationService = {
         'yahooo.com': 'yahoo.com',
         'hotmial.com': 'hotmail.com',
       };
-      
+
       if (domainCorrections[domain]) {
-        return { 
-          valid: false, 
-          reason: `Có phải bạn muốn dùng ${email.replace(domain, domainCorrections[domain])}?` 
+        return {
+          valid: false,
+          reason: `Có phải bạn muốn dùng ${email.replace(domain, domainCorrections[domain])}?`
         };
       }
 
@@ -202,10 +202,10 @@ export const emailVerificationService: EmailVerificationService = {
   verifyActionCode: async (code: string) => {
     try {
       await applyActionCode(auth, code);
-      console.log('✅ Email verification completed');
+      __DEV__ && console.debug('✅ Email verification completed');
     } catch (error: any) {
       console.error('❌ Error verifying action code:', error);
-      
+
       switch (error.code) {
         case 'auth/expired-action-code':
           throw new Error('Mã xác thực đã hết hạn. Vui lòng yêu cầu gửi lại.');

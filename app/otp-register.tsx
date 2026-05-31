@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/useAuth";
+﻿import { useAuth } from "@/hooks/useAuth";
 import { auth } from "@/utils/firebaseConfig";
 import AppConfig from "@/lib/config";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -112,7 +112,7 @@ export default function OTPRegister() {
   const onSubmitRegistration = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      console.log("Starting new OTP registration for:", data.email);
+      __DEV__ && console.debug("Starting new OTP registration for:", data.email);
       
       // Call backend register API (Step 1: Send OTP for registration)
       const response = await fetch(`${AppConfig.api.url}/api/auth/register`, {
@@ -182,7 +182,7 @@ export default function OTPRegister() {
 
     setIsLoading(true);
     try {
-      console.log("Verifying OTP for registration:", otpCode);
+      __DEV__ && console.debug("Verifying OTP for registration:", otpCode);
       
       const response = await fetch(`${AppConfig.api.url}/api/auth/register/verify-otp`, {
         method: 'POST',
@@ -207,12 +207,12 @@ export default function OTPRegister() {
       }
 
       if (result.success) {
-        console.log("✅ OTP verified successfully - Backend đã tạo account");
+        __DEV__ && console.debug("✅ OTP verified successfully - Backend đã tạo account");
         
         // Backend đã tạo Firebase account và trả về custom token
         if (result.firebase_token) {
           try {
-            console.log("Signing in with custom token from backend...");
+            __DEV__ && console.debug("Signing in with custom token from backend...");
             
             // Sign in với custom token từ backend
             const userCredential = await signInWithCustomToken(auth, result.firebase_token);

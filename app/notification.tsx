@@ -28,28 +28,28 @@ export default function NotificationScreen() {
   const [notifies, setNotifies] = useState<Notify[]>([]);
   const router = useRouter();
   const params = useLocalSearchParams();
-  
+
   // Notification states
   const type = params.type as string;
   const email = params.email as string;
   const data = params.data as string;
-  
+
   // Email verification states
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
-  
+
   // Login OTP states
   const [otpData, setOtpData] = useState<any>(null);
-  
+
   // Refs cho các TextInput
   const inputRefs = useRef<TextInput[]>([]);
 
   useEffect(() => {
     setNotifies(mockNotifies);
-    
+
     // Parse OTP data if type is login-otp
     if (type === 'login-otp' && data) {
       try {
@@ -144,7 +144,7 @@ export default function NotificationScreen() {
     try {
       // Kiểm tra lại trạng thái verification
       const isVerified = await emailVerificationService.checkEmailVerified(currentUser);
-      
+
       if (isVerified) {
         Alert.alert(
           'Xác thực thành công!',
@@ -196,7 +196,7 @@ export default function NotificationScreen() {
     setIsVerifying(true);
     try {
       const isVerified = await emailVerificationService.checkEmailVerified(currentUser);
-      
+
       if (isVerified) {
         Alert.alert(
           'Xác thực thành công!',
@@ -228,8 +228,8 @@ export default function NotificationScreen() {
 
     setIsVerifying(true);
     try {
-      console.log("Verifying login OTP:", otpCode);
-      
+      __DEV__ && console.debug("Verifying login OTP:", otpCode);
+
       const response = await fetch(`${AppConfig.api.url}/api/otp/verify`, {
         method: 'POST',
         headers: {
@@ -251,16 +251,16 @@ export default function NotificationScreen() {
 
       if (result.success) {
         // OTP verified successfully
-        console.log("✅ Login OTP verified successfully");
-        
+        __DEV__ && console.debug("✅ Login OTP verified successfully");
+
         // Get Firebase user token
         const user = auth.currentUser;
         if (user) {
           const idToken = await user.getIdToken();
-          
+
           // Here you would update auth context if needed
           // login(idToken, userData);
-          
+
           Alert.alert(
             'Đăng nhập thành công!',
             'Xác thực OTP hoàn tất.',
@@ -325,11 +325,11 @@ export default function NotificationScreen() {
   if (type === 'login-otp' && otpData) {
     return (
       <SafeAreaView style={styles.container}>
-        <Stack.Screen 
-          options={{ 
+        <Stack.Screen
+          options={{
             title: 'Xác thực đăng nhập',
-            headerShown: true 
-          }} 
+            headerShown: true
+          }}
         />
         <KeyboardAvoidingView
           style={styles.keyboardAvoidingView}
@@ -348,7 +348,7 @@ export default function NotificationScreen() {
             </View>
 
             <Text style={styles.title}>Xác thực đăng nhập</Text>
-            
+
             <Text style={styles.description}>
               Nhập mã 6 số đã được gửi đến{'\n'}
               <Text style={styles.email}>{otpData.email}</Text>
@@ -403,9 +403,9 @@ export default function NotificationScreen() {
               disabled={isResending || countdown > 0}
             >
               <Text style={styles.resendButtonText}>
-                {isResending 
-                  ? 'Đang gửi...' 
-                  : countdown > 0 
+                {isResending
+                  ? 'Đang gửi...'
+                  : countdown > 0
                     ? `Gửi lại sau ${countdown}s`
                     : 'Gửi lại mã OTP'
                 }
@@ -429,11 +429,11 @@ export default function NotificationScreen() {
   if (type === 'email-verification') {
     return (
       <SafeAreaView style={styles.container}>
-        <Stack.Screen 
-          options={{ 
+        <Stack.Screen
+          options={{
             title: 'Xác thực Email',
-            headerShown: true 
-          }} 
+            headerShown: true
+          }}
         />
         <KeyboardAvoidingView
           style={styles.keyboardAvoidingView}
@@ -452,7 +452,7 @@ export default function NotificationScreen() {
             </View>
 
             <Text style={styles.title}>Xác thực Email</Text>
-            
+
             <Text style={styles.description}>
               Chúng tôi đã gửi email xác thực đến{'\n'}
               <Text style={styles.email}>{email}</Text>
@@ -467,7 +467,7 @@ export default function NotificationScreen() {
             <Text style={styles.codeLabel}>
               Hoặc nhập mã xác thực (nếu có):
             </Text>
-            
+
             <View style={styles.codeContainer}>
               {verificationCode.map((digit, index) => (
                 <TextInput
@@ -508,9 +508,9 @@ export default function NotificationScreen() {
               disabled={isResending || countdown > 0}
             >
               <Text style={styles.resendButtonText}>
-                {isResending 
-                  ? 'Đang gửi...' 
-                  : countdown > 0 
+                {isResending
+                  ? 'Đang gửi...'
+                  : countdown > 0
                     ? `Gửi lại sau ${countdown}s`
                     : 'Gửi lại email xác thực'
                 }

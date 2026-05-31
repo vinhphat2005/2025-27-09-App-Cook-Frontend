@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactElement } from "react";
+﻿import type { PropsWithChildren, ReactElement } from "react";
 import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import Animated, {
   interpolate,
@@ -64,7 +64,7 @@ export default function ParallaxScrollView({
       {showBackButton && (
         <Pressable
           onPress={() => {
-            console.log('🔙 Back button pressed');
+            __DEV__ && console.debug('🔙 Back button pressed');
             if (isWeb) {
               // On web, use router
               if (router.canGoBack()) {

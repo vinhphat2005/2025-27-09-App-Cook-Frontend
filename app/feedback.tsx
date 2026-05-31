@@ -147,15 +147,11 @@ export default function FeedBackScreen() {
                   onPress={() => onPressStar(index)}
                   style={styles.star}
                 >
-                  {starValue === null ? (
-                    <Ionicons name="staro" size={30} color="#dc502e" />
-                  ) : (
-                    <Ionicons
-                      name={index <= starValue ? "star" : "staro"}
-                      size={30}
-                      color="#dc502e"
-                    />
-                  )}
+                  <Ionicons
+                    name="star"
+                    size={30}
+                    color={starValue !== null && index <= starValue ? "#dc502e" : "#d8d8d8"}
+                  />
                 </Pressable>
               );
             })}

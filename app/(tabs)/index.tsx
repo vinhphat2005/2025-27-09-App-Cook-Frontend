@@ -1,18 +1,27 @@
-// app/(tabs)/index.tsx — Quick inline fix (không cần sửa hook)
-import { Image, StyleSheet, Text, View, Alert, RefreshControl, TouchableOpacity, ActivityIndicator } from "react-native";
-import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { ProductList } from "@/components/Profile/ProductList";
-import { SearchBox } from "@/components/Search/SearchBox";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import ParallaxScrollView from "@/components/ParallaxScrollView";
+import { SearchBox } from "@/components/Search/SearchBox";
+import { AppConfig } from "@/lib/config";
+import { isWeb } from "@/styles/responsive";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Dish } from "@/types/dish";
-import { useFocusEffect } from "@react-navigation/native";
-import { isWeb } from "@/styles/responsive";
-import { AppConfig } from "@/lib/config";
 
-// ---------- utils (inline) ----------
+type InteractionType = "view" | "like" | "cook" | "favorite";
+
 function getBaseUrl(): string {
   return AppConfig.api.url;
 }
@@ -20,58 +29,44 @@ function getBaseUrl(): string {
 async function fetchJSON(url: string, options: RequestInit = {}, timeoutMs = 10000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const res = await fetch(url, { ...options, signal: controller.signal });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status} ${res.statusText} - ${text.slice(0, 200)}`);
     }
-    const ct = res.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
       const text = await res.text().catch(() => "");
-      throw new Error(`Invalid content-type: ${ct}. Body: ${text.slice(0, 200)}`);
+      throw new Error(`Invalid content-type: ${contentType}. Body: ${text.slice(0, 200)}`);
     }
+
     return res.json();
   } finally {
     clearTimeout(id);
   }
 }
 
-// map từ API RecommendationResponse -> Dish[] tối thiểu
 function mapRecToDishes(recRes: any): Dish[] {
-  console.log('🔍 mapRecToDishes input:', JSON.stringify(recRes, null, 2).slice(0, 500));
-  
   const list = recRes?.recommendations ?? [];
-  console.log(`📊 Found ${list.length} recommendations`);
-  
-  if (list.length === 0) {
-    console.warn('⚠️ Empty recommendations array!');
-    return [];
-  }
-  
-  const mapped = list.map((it: any) => {
-    const dish = {
-      id: it.dish_id || it.id || 'UNKNOWN',
-      image: it.image_url || it.image || "",
-      time: it.cooking_time ? `${it.cooking_time} phút` : "—",
-      label: it.name || it.label || "No name",
-      ingredients: it.ingredients || [],
-      steps: it.steps || [],
-      star: Math.round((it.average_rating || it.rating || 0) * 10) / 10,
-      isFavorite: it.isFavorite || false,
-      level: (it.difficulty as Dish["level"]) || "easy",
-      similarity_reason: it.similarity_reason || undefined, // ✅ Pass similarity reason
-      reason: it.reason || undefined, // ✅ Also pass reason
-    };
-    console.log(`  ✅ Mapped dish: ${dish.label} (${dish.id}) - similarity: ${dish.similarity_reason}`);
-    return dish;
-  }) as Dish[];
-  
-  console.log(`✅ Successfully mapped ${mapped.length} dishes`);
-  return mapped;
+
+  return list.map((it: any) => ({
+    id: it.dish_id || it.id || "UNKNOWN",
+    image: it.image_url || it.image || "",
+    time: it.cooking_time ? `${it.cooking_time} phút` : "0 phút",
+    label: it.name || it.label || "Không có tên",
+    ingredients: it.ingredients || [],
+    steps: it.steps || [],
+    star: Math.round((it.average_rating || it.rating || 0) * 10) / 10,
+    isFavorite: it.isFavorite || false,
+    level: (it.difficulty as Dish["level"]) || "easy",
+    similarity_reason: it.similarity_reason || undefined,
+    reason: it.reason || undefined,
+  }));
 }
 
-// ---------- screen ----------
 export default function HomeScreen() {
   const router = useRouter();
   const { token } = useAuthStore();
@@ -86,121 +81,124 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [feedTitle, setFeedTitle] = useState("Feed mới nhất");
+  const [feedSubtitle, setFeedSubtitle] = useState("Các món có đánh giá cao và mới cập nhật");
 
   const authHeaders = useMemo(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) h.Authorization = `Bearer ${token}`;
-    return h;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
   }, [token]);
 
-  // fetch favorites -> sync global store
   const fetchUserFavorites = useCallback(async () => {
     if (!token) return;
+
     try {
       const res = await fetchJSON(`${API}/users/me/favorites`, { headers: authHeaders });
-      const favoriteIds = (res || []).map((d: any) => String(d.id));
+      const favoriteIds = (res || []).map((dish: any) => String(dish.id));
       setAllFavorites(favoriteIds);
-      console.log(`📝 Synced ${favoriteIds.length} favorites to store`);
-    } catch (e) {
-      console.log("Failed to fetch favorites:", (e as Error).message);
+    } catch (error) {
+      console.warn("Failed to fetch favorites:", (error as Error).message);
     }
-  }, [API, token, authHeaders, setAllFavorites]);
+  }, [API, authHeaders, setAllFavorites, token]);
 
-  // track interaction
   const trackInteraction = useCallback(
-    async (dishId: string | number, type: "view" | "like" | "cook" | "favorite") => {
-      // Disabled: Backend endpoint not implemented yet
-      // TODO: Implement /api/recommendations/interaction endpoint
-      return;
-      
+    async (dishId: string | number, type: InteractionType) => {
+      if (!token) return;
+
       try {
-        if (!token) return;
-        const q = new URLSearchParams({ dish_id: String(dishId), interaction_type: type });
-        await fetchJSON(`${REC}/interaction?${q.toString()}`, { method: "POST", headers: authHeaders });
-      } catch (e) {
-        console.log("trackInteraction fail:", (e as Error).message);
+        const q = new URLSearchParams({
+          dish_id: String(dishId),
+          interaction_type: type,
+        });
+        await fetchJSON(`${REC}/interaction?${q.toString()}`, {
+          method: "POST",
+          headers: authHeaders,
+        });
+      } catch (error) {
+        console.warn("trackInteraction failed:", (error as Error).message);
       }
     },
-    [REC, authHeaders, token]
+    [REC, authHeaders, token],
   );
 
-  // fetch recs (with fallback)
-  // fetch recs (with fallback)
   const fetchRecs = useCallback(
     async (showRefresh = false) => {
       try {
         showRefresh ? setRefreshing(true) : setLoading(true);
-        console.log(`\n🔄 === FETCH RECS START (refresh=${showRefresh}) ===`);
 
-        // ✅ Chỉ load trending - không gợi ý cá nhân hóa
-        try {
-          console.log(`\n📈 Fetching dishes from: ${REC}/trending?days=7&limit=6&offset=0&min_rating=0`);
-          const tr = await fetchJSON(`${REC}/trending?days=7&limit=6&offset=0&min_rating=0`);
-          console.log(`✅ Dishes response:`, JSON.stringify(tr, null, 2).slice(0, 300));
-          const trendingDishes = mapRecToDishes(tr);
-          setTrending(trendingDishes);
-          setTrendingOffset(0);
-          setTrendingHasMore(tr.metadata?.has_more ?? false);
-          console.log(`✅ Set ${trendingDishes.length} dishes to state`);
-        } catch (e) {
-          console.log("❌ dishes fail:", (e as Error).message);
-          setTrending([]);
-          setTrendingHasMore(false);
+        if (token) {
+          try {
+            const personalized = await fetchJSON(
+              `${REC}/personalized?limit=6&exclude_seen=true&min_rating=0`,
+              { headers: authHeaders },
+            );
+            const personalizedDishes = mapRecToDishes(personalized);
+
+            if (personalizedDishes.length > 0) {
+              setTrending(personalizedDishes);
+              setTrendingOffset(0);
+              setTrendingHasMore(false);
+              setFeedTitle("Gợi ý cho bạn");
+              setFeedSubtitle("Dựa trên món bạn đã xem, thích và nấu");
+              return;
+            }
+          } catch (error) {
+            console.warn("Personalized feed failed:", (error as Error).message);
+          }
         }
-        
-        console.log(`\n✅ === FETCH RECS COMPLETE ===\n`);
+
+        const tr = await fetchJSON(`${REC}/trending?days=7&limit=6&offset=0&min_rating=0`);
+        const trendingDishes = mapRecToDishes(tr);
+        setTrending(trendingDishes);
+        setTrendingOffset(0);
+        setTrendingHasMore(tr.metadata?.has_more ?? false);
+        setFeedTitle("Feed mới nhất");
+        setFeedSubtitle("Các món có đánh giá cao và mới cập nhật");
+      } catch (error) {
+        console.warn("Feed failed:", (error as Error).message);
+        setTrending([]);
+        setTrendingHasMore(false);
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [REC]
+    [REC, authHeaders, token],
   );
 
-  // ✅ NEW: Load more trending dishes (pagination)
   const loadMoreTrending = useCallback(async () => {
-    if (!trendingHasMore || loadingMore) {
-      console.log("⚠️ No more data or already loading");
-      return;
-    }
+    if (!trendingHasMore || loadingMore) return;
 
     try {
       setLoadingMore(true);
-      const newOffset = trendingOffset + 6;  // ✅ Load 6 more (was 5)
-      
-      console.log(`\n📈 Loading more dishes: offset=${newOffset}`);
+      const newOffset = trendingOffset + 6;
       const tr = await fetchJSON(`${REC}/trending?days=7&limit=6&offset=${newOffset}&min_rating=0`);
-      
       const moreDishes = mapRecToDishes(tr);
-      console.log(`✅ Loaded ${moreDishes.length} more dishes`);
-      
-      // Append to existing trending
-      setTrending(prev => [...prev, ...moreDishes]);
+
+      setTrending((prev) => [...prev, ...moreDishes]);
       setTrendingOffset(newOffset);
       setTrendingHasMore(tr.metadata?.has_more ?? false);
-      
-      console.log(`📊 Total dishes now: ${trending.length + moreDishes.length}`);
-    } catch (e) {
-      console.error("❌ Error loading more dishes:", (e as Error).message);
+      setFeedTitle("Feed mới nhất");
+      setFeedSubtitle("Các món có đánh giá cao và mới cập nhật");
+    } catch (error) {
+      console.warn("Error loading more dishes:", (error as Error).message);
     } finally {
       setLoadingMore(false);
     }
-  }, [REC, trendingOffset, trendingHasMore, loadingMore, trending.length]);
+  }, [REC, loadingMore, trendingHasMore, trendingOffset]);
 
-  // initial load
   useEffect(() => {
     fetchRecs(false);
     fetchUserFavorites();
   }, [fetchRecs, fetchUserFavorites]);
 
-  // refetch favorites when screen focused
   useFocusEffect(
     useCallback(() => {
       fetchUserFavorites();
-    }, [fetchUserFavorites])
+    }, [fetchUserFavorites]),
   );
 
-  // toggle favorite
   const toggleFavorite = useCallback(
     async (dishId: number | string) => {
       try {
@@ -215,9 +213,10 @@ export default function HomeScreen() {
         const currentStatus = getFavoriteStatus(dishStringId);
         const newFavoriteStatus = !currentStatus;
 
-        // optimistic
         updateFavoriteStatus(dishStringId, newFavoriteStatus);
-        await trackInteraction(dishStringId, newFavoriteStatus ? "favorite" : "like");
+        if (newFavoriteStatus) {
+          await trackInteraction(dishStringId, "favorite");
+        }
 
         const resp = await fetch(`${API}/dishes/${dishStringId}/toggle-favorite`, {
           method: "POST",
@@ -225,27 +224,25 @@ export default function HomeScreen() {
         });
 
         if (!resp.ok) {
-          updateFavoriteStatus(dishStringId, !newFavoriteStatus); // revert
+          updateFavoriteStatus(dishStringId, !newFavoriteStatus);
           throw new Error(`Failed to toggle favorite ${resp.status}`);
         }
-      } catch (e: any) {
-        console.error("toggleFavorite error:", e);
+      } catch (error) {
+        console.error("toggleFavorite error:", error);
         Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
       }
     },
-    [API, router, getFavoriteStatus, updateFavoriteStatus, trackInteraction]
+    [API, getFavoriteStatus, router, trackInteraction, updateFavoriteStatus],
   );
 
-  // press dish
   const handleDishPress = useCallback(
     async (dish: Dish) => {
       if (token) await trackInteraction(dish.id, "view");
       router.push(`/detail?id=${dish.id.toString()}`);
     },
-    [router, token, trackInteraction]
+    [router, token, trackInteraction],
   );
 
-  // pull to refresh
   const onRefresh = useCallback(() => {
     fetchRecs(true);
   }, [fetchRecs]);
@@ -254,25 +251,18 @@ export default function HomeScreen() {
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#f5b402", dark: "#f5b402" }}
       includeBottomTab
-      headerImage={
-        <Image
-          source={require("@/assets/images/logo.png")}
-          style={styles.reactLogo}
-        />
-      }
+      headerImage={<Image source={require("@/assets/images/logo.png")} style={styles.reactLogo} />}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>Nhập nguyên liệu bạn có:</Text>
       <SearchBox />
 
-      {/* Feed - Món ăn mới nhất, rating cao (Facebook-style) */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>🔥 Feed Mới Nhất</Text>
-          <Text style={styles.sectionSubtitle}>Các bài viết mới nhất có đánh giá cao</Text>
+          <Text style={styles.sectionTitle}>{feedTitle}</Text>
+          <Text style={styles.sectionSubtitle}>{feedSubtitle}</Text>
         </View>
-        
-        {/* Facebook-style feed - 1 item per row */}
+
         {loading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color="#f5b402" />
@@ -281,77 +271,62 @@ export default function HomeScreen() {
         ) : trending.length === 0 ? (
           <View style={styles.centerContainer}>
             <Text style={styles.emptyText}>Hiện tại không có món ăn nào</Text>
-            <Text style={styles.emptySubText}>Hãy thử lại sau!</Text>
+            <Text style={styles.emptySubText}>Hãy thử lại sau.</Text>
           </View>
         ) : (
           <View style={styles.feedContainer}>
             {trending.map((dish) => (
               <View key={`feed-${dish.id}`} style={styles.feedItem}>
-                {/* Header - Tên và nút yêu thích */}
                 <View style={styles.feedItemHeader}>
-                  <Text style={styles.feedItemTitle} numberOfLines={2}>{dish.label}</Text>
-                  <TouchableOpacity 
-                    onPress={() => toggleFavorite(dish.id)}
-                    style={styles.feedItemFavoriteBtn}
-                  >
+                  <Text style={styles.feedItemTitle} numberOfLines={2}>
+                    {dish.label}
+                  </Text>
+                  <TouchableOpacity onPress={() => toggleFavorite(dish.id)} style={styles.feedItemFavoriteBtn}>
                     <Text style={styles.favoriteIcon}>
-                      {getFavoriteStatus(String(dish.id)) ? "❤️" : "🤍"}
+                      {getFavoriteStatus(String(dish.id)) ? "♥" : "♡"}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Image */}
-                <TouchableOpacity 
-                  onPress={() => handleDishPress(dish)}
-                  style={styles.feedItemImageContainer}
-                >
+                <TouchableOpacity onPress={() => handleDishPress(dish)} style={styles.feedItemImageContainer}>
                   <Image
                     source={{ uri: dish.image || "https://via.placeholder.com/400x300" }}
                     style={styles.feedItemImage}
                   />
                 </TouchableOpacity>
 
-                {/* Info Section */}
                 <View style={styles.feedItemInfoSection}>
-                  {/* Meta: Rating, Time, Level */}
                   <View style={styles.feedItemMetaRow}>
                     <View style={styles.metaItem}>
-                      <Text style={styles.metaIcon}>⭐</Text>
-                      <Text style={styles.metaText}>{dish.star ?? 0} ({(dish.star ?? 0) > 3.5 ? "Tốt" : "OK"})</Text>
+                      <Text style={styles.metaText}>★ {dish.star ?? 0}</Text>
                     </View>
                     <View style={styles.metaItem}>
-                      <Text style={styles.metaIcon}>⏱️</Text>
                       <Text style={styles.metaText}>{dish.time}</Text>
                     </View>
                     <View style={styles.metaItem}>
-                      <Text style={styles.metaIcon}>🎯</Text>
-                      <Text style={styles.metaText}>{dish.level === "easy" ? "Dễ" : dish.level === "medium" ? "Trung bình" : "Khó"}</Text>
+                      <Text style={styles.metaText}>
+                        {dish.level === "easy" ? "Dễ" : dish.level === "medium" ? "Trung bình" : "Khó"}
+                      </Text>
                     </View>
                   </View>
 
-                  {/* Ingredients */}
                   <View style={styles.ingredientsSection}>
-                    <Text style={styles.sectionLabel}>📦 Nguyên liệu:</Text>
+                    <Text style={styles.sectionLabel}>Nguyên liệu:</Text>
                     <Text style={styles.ingredientsText}>
                       {dish.ingredients?.slice(0, 5).join(", ") || "Không có thông tin"}
                       {dish.ingredients && dish.ingredients.length > 5 ? "..." : ""}
                     </Text>
                   </View>
 
-                  {/* Action Button */}
-                  <TouchableOpacity 
-                    onPress={() => handleDishPress(dish)}
-                    style={styles.viewDetailButton}
-                  >
-                    <Text style={styles.viewDetailButtonText}>👀 Xem chi tiết</Text>
+                  <TouchableOpacity onPress={() => handleDishPress(dish)} style={styles.viewDetailButton}>
+                    <Text style={styles.viewDetailButtonText}>Xem chi tiết</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
           </View>
         )}
-        
-        {/* ✅ Load More Button */}
+
         {trendingHasMore && (
           <TouchableOpacity
             onPress={loadMoreTrending}
@@ -364,7 +339,7 @@ export default function HomeScreen() {
                 <Text style={styles.loadMoreButtonText}>Đang tải...</Text>
               </>
             ) : (
-              <Text style={styles.loadMoreButtonText}>📥 Tải thêm món</Text>
+              <Text style={styles.loadMoreButtonText}>Tải thêm món</Text>
             )}
           </TouchableOpacity>
         )}
@@ -374,41 +349,39 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  reactLogo: { 
-    height: isWeb ? 150 : 178, 
-    width: isWeb ? 240 : 290, 
-    bottom: 0, 
-    left: 0, 
-    position: "absolute" 
+  reactLogo: {
+    height: isWeb ? 150 : 178,
+    width: isWeb ? 240 : 290,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
   },
-  title: { 
-    fontSize: isWeb ? 32 : 28, 
-    fontWeight: "600", 
-    color: "#333", 
-    marginBottom: isWeb ? 20 : 16, 
-    textAlign: "center" 
+  title: {
+    fontSize: isWeb ? 32 : 28,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: isWeb ? 20 : 16,
+    textAlign: "center",
   },
   section: { marginTop: isWeb ? 28 : 24 },
   sectionHeader: { marginBottom: isWeb ? 16 : 12, marginLeft: isWeb ? 0 : 12 },
-  sectionTitle: { 
-    fontSize: isWeb ? 24 : 22, 
-    fontWeight: "600", 
+  sectionTitle: {
+    fontSize: isWeb ? 24 : 22,
+    fontWeight: "600",
     color: "#333",
-    textAlign: isWeb ? 'center' : 'left',
+    textAlign: isWeb ? "center" : "left",
   },
-  sectionSubtitle: { 
-    fontSize: isWeb ? 15 : 14, 
-    color: "#666", 
+  sectionSubtitle: {
+    fontSize: isWeb ? 15 : 14,
+    color: "#666",
     marginTop: 4,
-    textAlign: isWeb ? 'center' : 'left',
+    textAlign: isWeb ? "center" : "left",
   },
-  
-  // ✅ Feed Container - Facebook style list
   feedContainer: {
     paddingHorizontal: isWeb ? 16 : 8,
-    maxWidth: isWeb ? 800 : '100%',
-    alignSelf: 'center' as const,
-    width: '100%',
+    maxWidth: isWeb ? 800 : "100%",
+    alignSelf: "center",
+    width: "100%",
   },
   feedItem: {
     backgroundColor: "#fff",
@@ -423,11 +396,9 @@ const styles = StyleSheet.create({
     elevation: 4,
     ...(isWeb && {
       borderWidth: 1,
-      borderColor: '#e0e0e0',
+      borderColor: "#e0e0e0",
     }),
   },
-  
-  // Header with title and favorite button
   feedItemHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -448,10 +419,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   favoriteIcon: {
-    fontSize: 28,
+    fontSize: 30,
+    color: "#dd3300",
   },
-
-  // Image container
   feedItemImageContainer: {
     width: "100%",
     height: 280,
@@ -461,14 +431,10 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-
-  // Info section
   feedItemInfoSection: {
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-
-  // Meta row: rating, time, level
   feedItemMetaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -482,17 +448,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
   },
-  metaIcon: {
-    fontSize: 18,
-    marginRight: 6,
-  },
   metaText: {
     fontSize: 14,
     fontWeight: "600",
     color: "#555",
   },
-
-  // Ingredients section
   ingredientsSection: {
     marginBottom: 12,
   },
@@ -508,8 +468,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "500",
   },
-
-  // View detail button
   viewDetailButton: {
     backgroundColor: "#f5b402",
     paddingVertical: 10,
@@ -523,15 +481,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#fff",
   },
-
-  // Old styles (keep for compatibility)
-  feedItemContent: {
-    flex: 1,
-    flexDirection: "row",
-    marginRight: 12,
-  },
-
-  // ✅ Empty & Loading states
   centerContainer: {
     flex: 1,
     justifyContent: "center",
@@ -558,8 +507,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-
-  // ✅ Load More Button Styles
   loadMoreButton: {
     marginHorizontal: 16,
     marginVertical: 12,

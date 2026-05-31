@@ -5,7 +5,7 @@ import { isWeb } from "@/styles/responsive";
 
 type Props = {
   dishes: Dish[];
-  onPressFavorite: (id: number) => void;
+  onPressFavorite: (id: string | number) => void;
   onPress: (dish: Dish) => void;
   itemsPerRow?: number;
   loading?: boolean;

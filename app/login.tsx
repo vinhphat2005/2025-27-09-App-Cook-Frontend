@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/useAuth";
+﻿import { useAuth } from "@/hooks/useAuth";
 import { AppConfig } from "@/lib/config";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Image } from "expo-image";
@@ -104,7 +104,7 @@ export default function LoginOTP() {
   const onSubmitLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      console.log("Step 1: Verifying credentials and sending OTP:", data.email);
+      __DEV__ && console.debug("Step 1: Verifying credentials and sending OTP:", data.email);
       
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
@@ -179,7 +179,7 @@ export default function LoginOTP() {
 
     setIsVerifying(true);
     try {
-      console.log("Verifying OTP for login:", otpCode);
+      __DEV__ && console.debug("Verifying OTP for login:", otpCode);
       
       const response = await fetch(`${API_BASE_URL}/api/auth/login/verify-otp`, {
         method: 'POST',
@@ -202,12 +202,12 @@ export default function LoginOTP() {
       }
 
       if (result.success) {
-        console.log("✅ OTP verified successfully");
+        __DEV__ && console.debug("✅ OTP verified successfully");
         
         // Backend trả về custom token, sign in với Firebase
         if (result.firebase_token) {
           try {
-            console.log("Signing in with custom token from backend...");
+            __DEV__ && console.debug("Signing in with custom token from backend...");
             
             // Sign in với custom token từ backend
             const userCredential = await signInWithCustomToken(auth, result.firebase_token);

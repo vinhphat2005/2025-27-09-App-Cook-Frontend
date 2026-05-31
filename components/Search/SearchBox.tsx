@@ -1,8 +1,9 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { View, TextInput, Button, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { AppConfig } from '@/lib/config';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 export function SearchBox() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export function SearchBox() {
       .map(item => item.trim())
       .filter(item => item.length > 0);
 
-    console.log("🔍 Searching for ingredients:", ingredients);
+    __DEV__ && console.debug("🔍 Searching for ingredients:", ingredients);
 
     let response, data;
 
@@ -47,7 +48,7 @@ export function SearchBox() {
 
     if (response.ok) {
       data = await response.json();
-      console.log("✅ Search results:", data);
+      __DEV__ && console.debug("✅ Search results:", data);
       
       router.push({
         pathname: "/search-results",

@@ -1,16 +1,17 @@
-// components/Debug/DebugRecommendations.tsx
+﻿// components/Debug/DebugRecommendations.tsx
 import { useState } from "react";
 import { View, Text, Button, ScrollView, StyleSheet } from "react-native";
 import { useAuthStore } from "@/store/authStore";
+import { AppConfig } from "@/lib/config";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = AppConfig.api.url;
 
 export function DebugRecommendations() {
   const [results, setResults] = useState<string[]>([]);
   const { token } = useAuthStore();
 
   const addLog = (message: string) => {
-    console.log(message);
+    __DEV__ && console.debug(message);
     setResults((prev) => [...prev, message]);
   };
 
@@ -57,23 +58,16 @@ export function DebugRecommendations() {
     addLog(`🔐 Has token: ${!!token}`);
 
     // Test 1: Trending (no auth)
-    await testEndpoint("/api/recommendations/trending?limit=5&days=7&min_rating=4.0&min_ratings_count=5");
+    await testEndpoint("/api/recommendations/trending?limit=5&days=7&min_rating=0");
 
-    // Test 2: For You (requires auth)
+    // Test 2: Personalized feed (requires auth)
     if (token) {
-      await testEndpoint("/api/recommendations/for-you?limit=5&exclude_seen=true&min_rating=3.5", true);
+      await testEndpoint("/api/recommendations/personalized?limit=5&exclude_seen=true&min_rating=0", true);
     } else {
-      addLog(`⚠️ Skipping /for-you - no auth token`);
+      addLog(`⚠️ Skipping /personalized - no auth token`);
     }
 
-    // Test 3: Popular (requires auth)
-    if (token) {
-      await testEndpoint("/api/recommendations/popular?limit=5&min_rating=3.5", true);
-    } else {
-      addLog(`⚠️ Skipping /popular - no auth token`);
-    }
-
-    // Test 4: Check if endpoint exists
+    // Test 3: Check if endpoint exists
     addLog(`\n🔍 Checking backend health...`);
     try {
       const healthCheck = await fetch(`${API_URL}/docs`);

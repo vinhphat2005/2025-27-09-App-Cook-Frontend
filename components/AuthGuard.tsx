@@ -14,7 +14,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     // Fallback: Force ready after 2 seconds (especially for web)
     const timeout = setTimeout(() => {
-      console.log("[AuthGuard] Force ready after timeout");
+      __DEV__ && console.debug("[AuthGuard] Force ready after timeout");
       setForceReady(true);
     }, 2000);
 
@@ -22,11 +22,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, []);
 
   useEffect(() => {
-    console.log("[AuthGuard] State:", { 
-      _hasHydrated, 
-      isAuthenticated, 
+    __DEV__ && console.debug("[AuthGuard] State:", {
+      _hasHydrated,
+      isAuthenticated,
       forceReady,
-      platform: Platform.OS 
+      platform: Platform.OS
     });
   }, [_hasHydrated, isAuthenticated, forceReady]);
 

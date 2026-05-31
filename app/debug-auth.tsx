@@ -15,7 +15,7 @@ export default function DebugAuth() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
-      console.log("Auth state changed:", user);
+      __DEV__ && console.debug("Auth state changed:", user);
     });
 
     return () => unsubscribe();
@@ -25,7 +25,7 @@ export default function DebugAuth() {
     try {
       await signOut(auth);
       logout();
-      console.log("Signed out successfully");
+      __DEV__ && console.debug("Signed out successfully");
     } catch (error) {
       console.error("Sign out error:", error);
     }
@@ -33,7 +33,7 @@ export default function DebugAuth() {
 
   const handleClearStorage = () => {
     logout();
-    console.log("Cleared local storage");
+    __DEV__ && console.debug("Cleared local storage");
   };
 
   const testLogin = async () => {
@@ -93,7 +93,7 @@ export default function DebugAuth() {
           <View style={styles.buttonSpacer} />
           <Button
             title="Go to Register"
-            onPress={() => router.replace("/register")}
+            onPress={() => router.replace("/otp-register")}
           />
         </View>
       </ScrollView>
